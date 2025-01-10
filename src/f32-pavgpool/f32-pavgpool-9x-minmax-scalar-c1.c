@@ -5,8 +5,13 @@
 
 #include <assert.h>
 
-#include <xnnpack/pavgpool.h>
-#include <xnnpack/math.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#include "xnnpack/common.h"
+#include "xnnpack/microparams.h"
+#include "xnnpack/pavgpool.h"
+#include "xnnpack/math.h"
 
 
 void xnn_f32_pavgpool_minmax_ukernel_9x__scalar_c1(

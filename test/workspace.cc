@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -14,11 +13,15 @@
 #include <random>
 #include <vector>
 
-#include <xnnpack.h>
-#include <xnnpack/math.h>
-#include <xnnpack/subgraph.h>
-
 #include <gtest/gtest.h>
+#include "xnnpack.h"
+#include "xnnpack/allocation-type.h"
+#include "xnnpack/common.h"
+#include "xnnpack/math.h"
+#include "xnnpack/subgraph.h"
+#include "xnnpack/buffer.h"
+#include "replicable_random_device.h"
+#include "runtime-flags.h"
 
 namespace {
 void DefineGraphWithoutInternalTensors(xnn_subgraph_t* subgraph, std::array<size_t, 4> dims)
@@ -36,7 +39,7 @@ void DefineGraphWithoutInternalTensors(xnn_subgraph_t* subgraph, std::array<size
     XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id);
   ASSERT_NE(output_id, XNN_INVALID_VALUE_ID);
 
-  ASSERT_EQ(xnn_status_success, xnn_define_abs(*subgraph, input_id, output_id, /*flags=*/0));
+  ASSERT_EQ(xnn_status_success, xnn_define_unary(*subgraph, xnn_unary_abs, /*params=*/nullptr, input_id, output_id, /*flags=*/0));
 }
 
 // Helper function to create a subgraph with 1 input, 1 output, and 1 intermediate tensor.
@@ -63,11 +66,11 @@ void DefineGraph(xnn_subgraph_t* subgraph, std::array<size_t, 4> dims)
     XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id);
   ASSERT_NE(output_id, XNN_INVALID_VALUE_ID);
 
-  ASSERT_EQ(xnn_status_success, xnn_define_abs(*subgraph, input_id, intermediate_id, /*flags=*/0));
-  ASSERT_EQ(xnn_status_success, xnn_define_hardswish(*subgraph, intermediate_id, output_id, /*flags=*/0));
+  ASSERT_EQ(xnn_status_success, xnn_define_unary(*subgraph, xnn_unary_abs, /*params=*/nullptr,input_id, intermediate_id, /*flags=*/0));
+  ASSERT_EQ(xnn_status_success, xnn_define_unary(*subgraph, xnn_unary_hardswish, /*params=*/nullptr,intermediate_id, output_id, /*flags=*/0));
 }
 
-void DefineGraphWithStaticData(xnn_subgraph_t* subgraph, std::array<size_t, 4> dims, const std::vector<float>* static_value)
+void DefineGraphWithStaticData(xnn_subgraph_t* subgraph, std::array<size_t, 4> dims, const xnnpack::Buffer<float>* static_value)
 {
   xnn_create_subgraph(/*external_value_ids=*/0, /*flags=*/0, subgraph);
   uint32_t input_id = XNN_INVALID_VALUE_ID;
@@ -88,10 +91,11 @@ void DefineGraphWithStaticData(xnn_subgraph_t* subgraph, std::array<size_t, 4> d
     XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id);
   ASSERT_NE(output_id, XNN_INVALID_VALUE_ID);
 
+  struct xnn_binary_params params = {-std::numeric_limits<float>::infinity(),
+                                     std::numeric_limits<float>::infinity()};
   ASSERT_EQ(xnn_status_success,
-            xnn_define_add2(*subgraph, -std::numeric_limits<float>::infinity(),
-                            std::numeric_limits<float>::infinity(), input_id,
-                            static_value_id, output_id, /*flags=*/0));
+            xnn_define_binary(*subgraph, xnn_binary_add, &params, input_id,
+                              static_value_id, output_id, /*flags=*/0));
 }
 
 void DefineGraphWithPersistentTensors(xnn_subgraph_t* subgraph, std::array<size_t, 4> dims)
@@ -122,9 +126,9 @@ void DefineGraphWithPersistentTensors(xnn_subgraph_t* subgraph, std::array<size_
     XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id);
   ASSERT_NE(output_id, XNN_INVALID_VALUE_ID);
 
-  ASSERT_EQ(xnn_status_success, xnn_define_abs(*subgraph, input_id, intermediate_id, /*flags=*/0));
+  ASSERT_EQ(xnn_status_success, xnn_define_unary(*subgraph, xnn_unary_abs, /*params=*/nullptr, input_id, intermediate_id, /*flags=*/0));
   ASSERT_EQ(xnn_status_success, xnn_define_copy(*subgraph, intermediate_id, intermediate_id2, /*flags=*/0));
-  ASSERT_EQ(xnn_status_success, xnn_define_hardswish(*subgraph, intermediate_id2, output_id, /*flags=*/0));
+  ASSERT_EQ(xnn_status_success, xnn_define_unary(*subgraph, xnn_unary_hardswish, /*params=*/nullptr, intermediate_id2, output_id, /*flags=*/0));
 }
 
 testing::AssertionResult ValueInWorkspace(xnn_value* value, xnn_workspace_t workspace) {
@@ -168,11 +172,11 @@ TEST(WORKSPACE, static_data_not_moved_does_not_segv)
 
   // Create a graph that with static data.
   xnn_subgraph_t subgraph1 = nullptr;
-  std::vector<float> static_data = std::vector<float>(num_elements, 1.0f);
+  xnnpack::Buffer<float> static_data(num_elements, 1.0f);
   DefineGraphWithStaticData(&subgraph1, dims, &static_data);
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph1(subgraph1, xnn_delete_subgraph);
   xnn_runtime_t runtime1 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, 0, &runtime1));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime1));
   const std::array<xnn_external_value, 2> external_values1 = {
     xnn_external_value{0, static_data.data()},
     xnn_external_value{2, static_data.data()},
@@ -191,7 +195,7 @@ TEST(WORKSPACE, static_data_not_moved_does_not_segv)
   DefineGraph(&subgraph2, dims);
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph2(subgraph2, xnn_delete_subgraph);
   xnn_runtime_t runtime2 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, 0, &runtime2));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime2));
   const std::array<xnn_external_value, 2> external_values2 = {
     xnn_external_value{0, static_data.data()},
     xnn_external_value{2, static_data.data()},
@@ -236,7 +240,7 @@ TEST(WORKSPACE, workspace_no_growth)
   std::unique_ptr<xnn_workspace, decltype(&xnn_release_workspace)> auto_workspace(workspace, xnn_release_workspace);
 
   std::array<size_t, 4> dims = {2, 20, 20, 3};
-  std::vector<float> dummy_data(2 * 20 * 20 * 3);
+  xnnpack::Buffer<float> dummy_data(2 * 20 * 20 * 3, 0.0f);
   const std::array<xnn_external_value, 2> external_values = {
     xnn_external_value{0, dummy_data.data()},
     xnn_external_value{2, dummy_data.data()},
@@ -247,7 +251,7 @@ TEST(WORKSPACE, workspace_no_growth)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph1(subgraph1, xnn_delete_subgraph);
 
   xnn_runtime_t runtime1 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, 0, &runtime1));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime1));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime1, 2, external_values.data()));
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime1(runtime1, xnn_delete_runtime);
 
@@ -262,7 +266,7 @@ TEST(WORKSPACE, workspace_no_growth)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph2(subgraph2, xnn_delete_subgraph);
 
   xnn_runtime_t runtime2 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, 0, &runtime2));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime2));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime2, 2, external_values.data()));
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime2(runtime2, xnn_delete_runtime);
 
@@ -300,12 +304,12 @@ TEST(WORKSPACE, workspace_grow)
   std::unique_ptr<xnn_workspace, decltype(&xnn_release_workspace)> auto_workspace(workspace, xnn_release_workspace);
 
   std::array<size_t, 4> dims1 = {2, 20, 20, 3};
-  std::vector<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float), 0.0f);
   const std::array<xnn_external_value, 2> external_values = {
     xnn_external_value{0, dummy_data.data()},
     xnn_external_value{2, dummy_data.data()},
   };
-  std::vector<float> dummy_data2(2 * 20 * 20 * 3 * 16 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> dummy_data2(2 * 20 * 20 * 3 * 16 + XNN_EXTRA_BYTES / sizeof(float), 0.0f);
   const std::array<xnn_external_value, 2> external_values2 = {
     xnn_external_value{0, dummy_data2.data()},
     xnn_external_value{2, dummy_data2.data()},
@@ -316,7 +320,7 @@ TEST(WORKSPACE, workspace_grow)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph1(subgraph1, xnn_delete_subgraph);
 
   xnn_runtime_t runtime1 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, 0, &runtime1));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime1));
 
   // No workspace allocated yet, it should be only allocated on setup.
   ASSERT_EQ(workspace->size, 0);
@@ -338,7 +342,7 @@ TEST(WORKSPACE, workspace_grow)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph2(subgraph2, xnn_delete_subgraph);
 
   xnn_runtime_t runtime2 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, 0, &runtime2));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime2));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime2, 2, external_values2.data()));
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime2(runtime2, xnn_delete_runtime);
 
@@ -384,7 +388,7 @@ TEST(WORKSPACE, workspace_runtime_delete_head_runtime_first)
   std::unique_ptr<xnn_workspace, decltype(&xnn_release_workspace)> auto_workspace(workspace, xnn_release_workspace);
 
   const std::array<size_t, 4> dims = {2, 20, 20, 3};
-  std::vector<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float), 0.0f);
   const std::array<xnn_external_value, 2> external_values = {
     xnn_external_value{0, dummy_data.data()},
     xnn_external_value{2, dummy_data.data()},
@@ -395,7 +399,7 @@ TEST(WORKSPACE, workspace_runtime_delete_head_runtime_first)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph1(subgraph1, xnn_delete_subgraph);
 
   xnn_runtime_t runtime1 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, 0, &runtime1));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime1));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime1, 2, external_values.data()));
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime1(runtime1, xnn_delete_runtime);
 
@@ -404,7 +408,7 @@ TEST(WORKSPACE, workspace_runtime_delete_head_runtime_first)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph2(subgraph2, xnn_delete_subgraph);
 
   xnn_runtime_t runtime2 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, 0, &runtime2));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime2));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime2, 2, external_values.data()));
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime2(runtime2, xnn_delete_runtime);
 
@@ -436,7 +440,7 @@ TEST(WORKSPACE, workspace_runtime_delete_tail_runtime_first)
   std::unique_ptr<xnn_workspace, decltype(&xnn_release_workspace)> auto_workspace(workspace, xnn_release_workspace);
 
   std::array<size_t, 4> dims = {2, 20, 20, 3};
-  std::vector<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float), 0.0f);
   const std::array<xnn_external_value, 2> external_values = {
     xnn_external_value{0, dummy_data.data()},
     xnn_external_value{2, dummy_data.data()},
@@ -447,7 +451,7 @@ TEST(WORKSPACE, workspace_runtime_delete_tail_runtime_first)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph1(subgraph1, xnn_delete_subgraph);
 
   xnn_runtime_t runtime1 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, 0, &runtime1));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime1));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime1, 2, external_values.data()));
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime1(runtime1, xnn_delete_runtime);
 
@@ -456,7 +460,7 @@ TEST(WORKSPACE, workspace_runtime_delete_tail_runtime_first)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph2(subgraph2, xnn_delete_subgraph);
 
   xnn_runtime_t runtime2 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, 0, &runtime2));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime2));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime2, 2, external_values.data()));
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime2(runtime2, xnn_delete_runtime);
 
@@ -489,7 +493,7 @@ TEST(WORKSPACE, workspace_runtime_delete_middle_runtime_first)
   std::unique_ptr<xnn_workspace, decltype(&xnn_release_workspace)> auto_workspace(workspace, xnn_release_workspace);
 
   std::array<size_t, 4> dims = {2, 20, 20, 3};
-  std::vector<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float), 0.0f);
   const std::array<xnn_external_value, 2> external_values = {
     xnn_external_value{0, dummy_data.data()},
     xnn_external_value{2, dummy_data.data()},
@@ -500,7 +504,7 @@ TEST(WORKSPACE, workspace_runtime_delete_middle_runtime_first)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph1(subgraph1, xnn_delete_subgraph);
 
   xnn_runtime_t runtime1 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, 0, &runtime1));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime1));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime1, 2, external_values.data()));
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime1(runtime1, xnn_delete_runtime);
 
@@ -509,7 +513,7 @@ TEST(WORKSPACE, workspace_runtime_delete_middle_runtime_first)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph2(subgraph2, xnn_delete_subgraph);
 
   xnn_runtime_t runtime2 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, 0, &runtime2));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime2));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime2, 2, external_values.data()));
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime2(runtime2, xnn_delete_runtime);
 
@@ -518,7 +522,7 @@ TEST(WORKSPACE, workspace_runtime_delete_middle_runtime_first)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph3(subgraph3, xnn_delete_subgraph);
 
   xnn_runtime_t runtime3 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph3, nullptr, workspace, nullptr, 0, &runtime3));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph3, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime3));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime3, 2, external_values.data()));
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime3(runtime3, xnn_delete_runtime);
 
@@ -562,7 +566,7 @@ TEST(WORKSPACE, zero_sized_workspace_for_graph_without_internal_tensors)
   std::unique_ptr<xnn_workspace, decltype(&xnn_release_workspace)> auto_workspace(workspace, xnn_release_workspace);
 
   std::array<size_t, 4> dims = {2, 20, 20, 3};
-  std::vector<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float), 0.0f);
   const std::array<xnn_external_value, 2> external_values = {
     xnn_external_value{0, dummy_data.data()},
     xnn_external_value{1, dummy_data.data()},
@@ -573,7 +577,7 @@ TEST(WORKSPACE, zero_sized_workspace_for_graph_without_internal_tensors)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph(subgraph, xnn_delete_subgraph);
 
   xnn_runtime_t runtime = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph, nullptr, workspace, nullptr, 0, &runtime));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime, 2, external_values.data()));
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime(runtime, xnn_delete_runtime);
 
@@ -595,7 +599,7 @@ TEST(WORKSPACE, persistent_tensors_allocated_at_start_of_workspace)
     workspace, xnn_release_workspace);
 
   const std::array<size_t, 4> dims = {2, 20, 20, 3};
-  std::vector<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float), 0.0f);
   const std::array<xnn_external_value, 2> external_values = {
     xnn_external_value{0, dummy_data.data()},
     xnn_external_value{3, dummy_data.data()},
@@ -606,7 +610,7 @@ TEST(WORKSPACE, persistent_tensors_allocated_at_start_of_workspace)
   const std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph(subgraph, xnn_delete_subgraph);
 
   xnn_runtime_t runtime = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph, nullptr, workspace, nullptr, 0, &runtime));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime, 2, external_values.data()));
   const std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime(runtime, xnn_delete_runtime);
 
@@ -637,12 +641,12 @@ TEST(WORKSPACE, persistent_tensors_updated_correct_when_workspace_grows)
     workspace, xnn_release_workspace);
 
   const std::array<size_t, 4> dims1 = {2, 20, 20, 3};
-  std::vector<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> dummy_data(2 * 20 * 20 * 3 + XNN_EXTRA_BYTES / sizeof(float), 0.0f);
   const std::array<xnn_external_value, 2> external_values = {
     xnn_external_value{0, dummy_data.data()},
     xnn_external_value{3, dummy_data.data()},
   };
-  std::vector<float> dummy_data2(2 * 20 * 20 * 3 * 16 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> dummy_data2(2 * 20 * 20 * 3 * 16 + XNN_EXTRA_BYTES / sizeof(float), 0.0f);
   const std::array<xnn_external_value, 2> external_values2 = {
     xnn_external_value{0, dummy_data2.data()},
     xnn_external_value{3, dummy_data2.data()},
@@ -653,7 +657,7 @@ TEST(WORKSPACE, persistent_tensors_updated_correct_when_workspace_grows)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph1(subgraph1, xnn_delete_subgraph);
 
   xnn_runtime_t runtime1 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, 0, &runtime1));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime1));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime1, 2, external_values.data()));
   const std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime(runtime1, xnn_delete_runtime);
 
@@ -669,7 +673,7 @@ TEST(WORKSPACE, persistent_tensors_updated_correct_when_workspace_grows)
   DefineGraphWithPersistentTensors(&subgraph2, dims2);
   const std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph2(subgraph2, xnn_delete_subgraph);
   xnn_runtime_t runtime2 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, 0, &runtime2));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime2));
   ASSERT_EQ(xnn_status_success, xnn_setup_runtime(runtime2, 2, external_values2.data()));
   const std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime2(runtime2, xnn_delete_runtime);
 
@@ -763,9 +767,9 @@ TEST(WORKSPACE, persistent_tensors_values_copied_when_workspace_grows)
   }
 
   xnn_runtime_t runtime1 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, 0, &runtime1));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph1, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime1));
   const std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime(runtime1, xnn_delete_runtime);
-  std::vector<float> expected(2 * 2 * 2 * 3 + XNN_EXTRA_BYTES / sizeof(float), 3.14f);
+  xnnpack::Buffer<float> expected(2 * 2 * 2 * 3 + XNN_EXTRA_BYTES / sizeof(float), 3.14f);
   const std::array<xnn_external_value, 1> external_values = {
     xnn_external_value{0, expected.data()},
   };
@@ -773,7 +777,7 @@ TEST(WORKSPACE, persistent_tensors_values_copied_when_workspace_grows)
 
   // Create the same graph but with larger tensors, this will require a larger workspace.
   xnn_runtime_t runtime2 = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, 0, &runtime2));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v4(subgraph2, nullptr, workspace, nullptr, xnn_test_runtime_flags(), &runtime2));
   const std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime2(runtime2, xnn_delete_runtime);
 
   const size_t old_workspace_size = workspace->size;
@@ -782,8 +786,8 @@ TEST(WORKSPACE, persistent_tensors_values_copied_when_workspace_grows)
   ASSERT_EQ(xnn_status_success, xnn_invoke_runtime(runtime1));
 
   // Setup second runtime, this should grow.
-  std::vector<float> actual(2 * 2 * 2 * 3 + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<float> dummy(22 * 2 * 2 * 3 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> actual(2 * 2 * 2 * 3 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> dummy(22 * 2 * 2 * 3 + XNN_EXTRA_BYTES / sizeof(float));
   const std::array<xnn_external_value, 2> external_values2 = {
     xnn_external_value{0, actual.data()},
     xnn_external_value{1, dummy.data()},
@@ -806,8 +810,7 @@ TEST(WORKSPACE, internally_allocated_dynamic_quantization_parameters)
   ASSERT_EQ(xnn_status_success, xnn_create_subgraph(/*external_value_ids=*/4, /*flags=*/0, &subgraph));
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph(subgraph, xnn_delete_subgraph);
   uint32_t input_id = XNN_INVALID_NODE_ID;
-  std::random_device random_device;
-  auto rng = std::mt19937(random_device());
+  xnnpack::ReplicableRandomDevice rng;
   auto scalerng = std::bind(std::uniform_real_distribution<float>(0.5f, 2.f), std::ref(rng));
   const size_t batch_size = 3;
   const size_t input_channels = 4;
@@ -815,13 +818,12 @@ TEST(WORKSPACE, internally_allocated_dynamic_quantization_parameters)
   std::vector<size_t> input_dims{batch_size, input_channels};
   std::vector<size_t> kernel_dims{output_channels, input_channels};
   std::vector<size_t> bias_dims{output_channels};
-  std::vector<float> input(batch_size * input_channels + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<float> subgraph_output(batch_size * output_channels);
-  std::fill(subgraph_output.begin(), subgraph_output.end(), nanf(""));
-  std::vector<xnn_dynamic_quantization_params> quantization_params(3 + XNN_EXTRA_QUANTIZATION_PARAMS);
-  std::vector<float> kernel_scale(output_channels);
-  std::vector<float> bias(output_channels);
-  std::vector<int8_t> kernel(input_channels * output_channels);
+  xnnpack::Buffer<float> input(batch_size * input_channels + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> subgraph_output(batch_size * output_channels);
+  xnnpack::Buffer<xnn_quantization_params> quantization_params(3 + XNN_EXTRA_QUANTIZATION_PARAMS);
+  xnnpack::Buffer<float> kernel_scale(output_channels);
+  xnnpack::Buffer<float> bias(output_channels);
+  xnnpack::Buffer<int8_t> kernel(input_channels * output_channels);
   std::vector<size_t> output_dims{batch_size, output_channels};
   std::generate(kernel_scale.begin(), kernel_scale.end(), std::ref(scalerng));
 
@@ -860,9 +862,9 @@ TEST(WORKSPACE, internally_allocated_dynamic_quantization_parameters)
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
   xnn_runtime_t runtime = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_define_convert(subgraph, input_id, dq_quantized_id, /*flags=*/0));
+  ASSERT_EQ(xnn_status_success, xnn_define_unary(subgraph, xnn_unary_convert, /*params=*/nullptr, input_id, dq_quantized_id, /*flags=*/0));
   ASSERT_EQ(xnn_status_success, xnn_define_fully_connected(subgraph, output_min, output_max, dq_quantized_id, kernel_id, bias_id, output_id, /*flags=*/0));
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, /*flags=*/0, &runtime));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, xnn_test_runtime_flags(), &runtime));
   ASSERT_NE(nullptr, runtime);
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime(runtime, xnn_delete_runtime);
   std::array<xnn_external_value, 2> external = {
@@ -872,9 +874,16 @@ TEST(WORKSPACE, internally_allocated_dynamic_quantization_parameters)
   size_t dq_tensors = 0;
   for (size_t i = 0; i < runtime->num_values; i++) {
     const xnn_value* value = &runtime->values[i];
-    if (value->datatype == xnn_datatype_qdint8) {
-      ++dq_tensors;
-      ASSERT_NE(value->quantization.dynamic_params, nullptr);
+    switch (value->datatype) {
+      case xnn_datatype_qdint8:
+      case xnn_datatype_qduint8:
+        ASSERT_NE(value->quantization.dynamic_params, nullptr);
+        XNN_FALLTHROUGH;
+      case xnn_datatype_qpint8:
+        ++dq_tensors;
+        break;
+      default:
+        break;
     }
   }
   ASSERT_EQ(dq_tensors, 1);

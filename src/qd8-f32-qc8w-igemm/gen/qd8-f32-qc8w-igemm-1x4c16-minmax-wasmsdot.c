@@ -1,5 +1,5 @@
 // Auto-generated file. Do not edit!
-//   Template: src/qs8-igemm/MRx4c16-wasmsdot.c.in
+//   Template: src/qs8-igemm/MRx4c16-wasmdot.c.in
 //   Generator: tools/xngen
 //
 // Copyright 2023 Google LLC
@@ -11,8 +11,8 @@
 
 #include <wasm_simd128.h>
 
-#include <xnnpack/gemm.h>
-#include <xnnpack/math.h>
+#include "xnnpack/gemm.h"
+#include "xnnpack/math.h"
 
 
 void xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x4c16__wasmsdot(
@@ -45,6 +45,11 @@ void xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x4c16__wasmsdot(
   kc = round_up_po2(kc, 16 * sizeof(int8_t));
   float* c0 = c;
 
+  const v128_t vmin = wasm_v128_load32_splat(&params->scalar.min);
+  const v128_t vmax = wasm_v128_load32_splat(&params->scalar.max);
+  XNN_FORCE_REALIZATION(vmin);
+  XNN_FORCE_REALIZATION(vmax);
+
   do {
     v128_t vksum0 = wasm_v128_load32_zero(w);
     v128_t vksum1 = wasm_v128_load32_zero((const int32_t*) w + 1);
@@ -73,13 +78,13 @@ void xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x4c16__wasmsdot(
         a0 += 16;
 
         const v128_t vb0 = wasm_v128_load(w);
-        vacc0x0 = wasm_i32x4_relaxed_dot_i8x16_i7x16_add(va0, vb0, vacc0x0);
+        vacc0x0 = wasm_i32x4_relaxed_dot_i8x16_i7x16_add(vb0, va0, vacc0x0);
         const v128_t vb1 = wasm_v128_load((const int8_t*) w + 16);
-        vacc0x1 = wasm_i32x4_relaxed_dot_i8x16_i7x16_add(va0, vb1, vacc0x1);
+        vacc0x1 = wasm_i32x4_relaxed_dot_i8x16_i7x16_add(vb1, va0, vacc0x1);
         const v128_t vb2 = wasm_v128_load((const int8_t*) w + 32);
-        vacc0x2 = wasm_i32x4_relaxed_dot_i8x16_i7x16_add(va0, vb2, vacc0x2);
+        vacc0x2 = wasm_i32x4_relaxed_dot_i8x16_i7x16_add(vb2, va0, vacc0x2);
         const v128_t vb3 = wasm_v128_load((const int8_t*) w + 48);
-        vacc0x3 = wasm_i32x4_relaxed_dot_i8x16_i7x16_add(va0, vb3, vacc0x3);
+        vacc0x3 = wasm_i32x4_relaxed_dot_i8x16_i7x16_add(vb3, va0, vacc0x3);
 
         w = (const int8_t*) w + 64;
         k -= 16 * sizeof(int8_t);
@@ -106,10 +111,8 @@ void xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x4c16__wasmsdot(
     vacc0x0123 = wasm_f32x4_add(vacc0x0123, vbias0123);
     w = (const float*) w + 4;
 
-    const v128_t vmin = wasm_v128_load64_splat(params->wasmsimd.min);
     vacc0x0123 = wasm_f32x4_pmax(vacc0x0123, vmin);
 
-    const v128_t vmax = wasm_v128_load64_splat(params->wasmsimd.max);
     vacc0x0123 = wasm_f32x4_pmin(vacc0x0123, vmax);
 
     if XNN_LIKELY(nc >= 4) {

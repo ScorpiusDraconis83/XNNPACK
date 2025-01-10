@@ -11,7 +11,7 @@
 
 #include <wasm_simd128.h>
 
-#include <xnnpack/spmm.h>
+#include "xnnpack/spmm.h"
 
 
 void xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_arm_pipelined_x2(
@@ -29,8 +29,10 @@ void xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_arm_pipelined_x2(
   assert(mc % sizeof(float) == 0);
   assert(nc != 0);
 
-  const v128_t vmin = wasm_v128_load64_splat(params->wasmsimd.min);
-  const v128_t vmax = wasm_v128_load64_splat(params->wasmsimd.max);
+  const v128_t vmin = wasm_v128_load32_splat(&params->scalar.min);
+  const v128_t vmax = wasm_v128_load32_splat(&params->scalar.max);
+  XNN_FORCE_REALIZATION(vmin);
+  XNN_FORCE_REALIZATION(vmax);
   size_t output_decrement = output_stride * nc - 32 * sizeof(float);
   while XNN_LIKELY(mc >= 32 * sizeof(float)) {
     const float* w = weights;
@@ -60,14 +62,14 @@ void xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_arm_pipelined_x2(
       vw = wasm_v128_load32_splat(w); w += 1;
 
       for (; nnz >= 2; nnz -= 2) {
-        vacc0123 = wasm_f32x4_add(vacc0123, wasm_f32x4_mul(vi0123,   vw));
-        vacc4567 = wasm_f32x4_add(vacc4567, wasm_f32x4_mul(vi4567,   vw));
-        vacc89AB = wasm_f32x4_add(vacc89AB, wasm_f32x4_mul(vi89AB,   vw));
-        vaccCDEF = wasm_f32x4_add(vaccCDEF, wasm_f32x4_mul(viCDEF,   vw));
-        vaccGHIJ = wasm_f32x4_add(vaccGHIJ, wasm_f32x4_mul(viGHIJ,   vw));
-        vaccKLMN = wasm_f32x4_add(vaccKLMN, wasm_f32x4_mul(viKLMN,   vw));
-        vaccOPQR = wasm_f32x4_add(vaccOPQR, wasm_f32x4_mul(viOPQR,   vw));
-        vaccSTUV = wasm_f32x4_add(vaccSTUV, wasm_f32x4_mul(viSTUV,   vw));
+        vacc0123 = wasm_f32x4_add(vacc0123, wasm_f32x4_mul(vi0123, vw));
+        vacc4567 = wasm_f32x4_add(vacc4567, wasm_f32x4_mul(vi4567, vw));
+        vacc89AB = wasm_f32x4_add(vacc89AB, wasm_f32x4_mul(vi89AB, vw));
+        vaccCDEF = wasm_f32x4_add(vaccCDEF, wasm_f32x4_mul(viCDEF, vw));
+        vaccGHIJ = wasm_f32x4_add(vaccGHIJ, wasm_f32x4_mul(viGHIJ, vw));
+        vaccKLMN = wasm_f32x4_add(vaccKLMN, wasm_f32x4_mul(viKLMN, vw));
+        vaccOPQR = wasm_f32x4_add(vaccOPQR, wasm_f32x4_mul(viOPQR, vw));
+        vaccSTUV = wasm_f32x4_add(vaccSTUV, wasm_f32x4_mul(viSTUV, vw));
         input = (const float*restrict) ((uintptr_t) input + (uintptr_t) diff);
         diff = *dmap++;
         vw = wasm_v128_load32_splat(w); w += 1;
@@ -79,14 +81,14 @@ void xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_arm_pipelined_x2(
         viKLMN = wasm_v128_load(input + 20);
         viOPQR = wasm_v128_load(input + 24);
         viSTUV = wasm_v128_load(input + 28);
-        vacc0123 = wasm_f32x4_add(vacc0123, wasm_f32x4_mul(vi0123,   vw));
-        vacc4567 = wasm_f32x4_add(vacc4567, wasm_f32x4_mul(vi4567,   vw));
-        vacc89AB = wasm_f32x4_add(vacc89AB, wasm_f32x4_mul(vi89AB,   vw));
-        vaccCDEF = wasm_f32x4_add(vaccCDEF, wasm_f32x4_mul(viCDEF,   vw));
-        vaccGHIJ = wasm_f32x4_add(vaccGHIJ, wasm_f32x4_mul(viGHIJ,   vw));
-        vaccKLMN = wasm_f32x4_add(vaccKLMN, wasm_f32x4_mul(viKLMN,   vw));
-        vaccOPQR = wasm_f32x4_add(vaccOPQR, wasm_f32x4_mul(viOPQR,   vw));
-        vaccSTUV = wasm_f32x4_add(vaccSTUV, wasm_f32x4_mul(viSTUV,   vw));
+        vacc0123 = wasm_f32x4_add(vacc0123, wasm_f32x4_mul(vi0123, vw));
+        vacc4567 = wasm_f32x4_add(vacc4567, wasm_f32x4_mul(vi4567, vw));
+        vacc89AB = wasm_f32x4_add(vacc89AB, wasm_f32x4_mul(vi89AB, vw));
+        vaccCDEF = wasm_f32x4_add(vaccCDEF, wasm_f32x4_mul(viCDEF, vw));
+        vaccGHIJ = wasm_f32x4_add(vaccGHIJ, wasm_f32x4_mul(viGHIJ, vw));
+        vaccKLMN = wasm_f32x4_add(vaccKLMN, wasm_f32x4_mul(viKLMN, vw));
+        vaccOPQR = wasm_f32x4_add(vaccOPQR, wasm_f32x4_mul(viOPQR, vw));
+        vaccSTUV = wasm_f32x4_add(vaccSTUV, wasm_f32x4_mul(viSTUV, vw));
         input = (const float*restrict) ((uintptr_t) input + (uintptr_t) diff);
         diff = *dmap++;
         vw = wasm_v128_load32_splat(w); w += 1;

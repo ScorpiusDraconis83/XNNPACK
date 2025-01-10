@@ -11,15 +11,15 @@
 
 #include <arm_neon.h>
 
-#include <xnnpack/common.h>
-#include <xnnpack/reduce.h>
+#include "xnnpack/common.h"
+#include "xnnpack/reduce.h"
 
 
 void xnn_f16_rminmax_ukernel__neonfp16arith_u16_acc2(
     size_t batch,
-    const void* input,
-    void* output,
-    const union xnn_f16_default_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const xnn_float16* input,
+    xnn_float16* output,
+    const struct xnn_f16_default_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(batch != 0);
   assert(batch % sizeof(uint16_t) == 0);
@@ -72,8 +72,8 @@ void xnn_f16_rminmax_ukernel__neonfp16arith_u16_acc2(
   #if XNN_ARCH_ARM64 && defined(__GNUC__)
     *((__fp16*) o) = vminv_f16(vmin_lo);
   #else
-    vmin_lo = vpmax_f16(vmin_lo, vmin_lo);
-    vmin_lo = vpmax_f16(vmin_lo, vmin_lo);
+    vmin_lo = vpmin_f16(vmin_lo, vmin_lo);
+    vmin_lo = vpmin_f16(vmin_lo, vmin_lo);
     vst1_lane_u16(o, vreinterpret_u16_f16(vmin_lo), 0);
   #endif
   #if XNN_ARCH_ARM64 && defined(__GNUC__)

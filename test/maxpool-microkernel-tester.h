@@ -8,66 +8,71 @@
 
 #pragma once
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include <limits>
 #include <random>
 #include <vector>
 
-#include <fp16/fp16.h>
-
-#include <xnnpack.h>
-#include <xnnpack/microparams-init.h>
-#include <xnnpack/microfnptr.h>
-
+#include <gtest/gtest.h>
+#include "xnnpack.h"
+#include "xnnpack/buffer.h"
+#include "xnnpack/math.h"
+#include "xnnpack/microfnptr.h"
+#include "xnnpack/microparams.h"
+#include "next_prime.h"
+#include "replicable_random_device.h"
 
 class MaxPoolMicrokernelTester {
  public:
-  inline MaxPoolMicrokernelTester& output_pixels(size_t output_pixels) {
+  MaxPoolMicrokernelTester() = default;
+
+  MaxPoolMicrokernelTester& output_pixels(size_t output_pixels) {
     assert(output_pixels != 0);
     this->output_pixels_ = output_pixels;
     return *this;
   }
 
-  inline size_t output_pixels() const {
+  size_t output_pixels() const {
     return this->output_pixels_;
   }
 
-  inline MaxPoolMicrokernelTester& step(size_t step) {
+  MaxPoolMicrokernelTester& step(size_t step) {
     assert(step != 0);
     this->step_ = step;
     return *this;
   }
 
-  inline size_t step() const {
+  size_t step() const {
     return this->step_;
   }
 
-  inline MaxPoolMicrokernelTester& input_offset(size_t input_offset) {
+  MaxPoolMicrokernelTester& input_offset(size_t input_offset) {
     assert(input_offset != 0);
     this->input_offset_ = input_offset;
     return *this;
   }
 
-  inline size_t input_offset() const {
+  size_t input_offset() const {
     return this->input_offset_;
   }
 
-  inline MaxPoolMicrokernelTester& pooling_elements(size_t pooling_elements) {
+  MaxPoolMicrokernelTester& pooling_elements(size_t pooling_elements) {
     assert(pooling_elements != 0);
     this->pooling_elements_ = pooling_elements;
     return *this;
   }
 
-  inline size_t pooling_elements() const {
+  size_t pooling_elements() const {
     return this->pooling_elements_;
   }
 
-  inline size_t packed_pooling_elements() const {
+  size_t packed_pooling_elements() const {
     if (pooling_elements() <= primary_pooling_tile()) {
       return primary_pooling_tile();
     } else {
@@ -75,50 +80,50 @@ class MaxPoolMicrokernelTester {
     }
   }
 
-  inline MaxPoolMicrokernelTester& pooling_tile(size_t primary_tile, size_t incremental_tile) {
+  MaxPoolMicrokernelTester& pooling_tile(size_t primary_tile, size_t incremental_tile) {
     assert(primary_tile != 0);
     this->primary_pooling_tile_ = primary_tile;
     this->incremental_pooling_tile_ = incremental_tile;
     return *this;
   }
 
-  inline MaxPoolMicrokernelTester& primary_pooling_tile(size_t primary_pooling_tile) {
+  MaxPoolMicrokernelTester& primary_pooling_tile(size_t primary_pooling_tile) {
     assert(primary_pooling_tile != 0);
     this->primary_pooling_tile_ = primary_pooling_tile;
     return *this;
   }
 
-  inline size_t primary_pooling_tile() const {
+  size_t primary_pooling_tile() const {
     return this->primary_pooling_tile_;
   }
 
-  inline MaxPoolMicrokernelTester& incremental_pooling_tile(size_t incremental_pooling_tile) {
+  MaxPoolMicrokernelTester& incremental_pooling_tile(size_t incremental_pooling_tile) {
     assert(incremental_pooling_tile != 0);
     this->incremental_pooling_tile_ = incremental_pooling_tile;
     return *this;
   }
 
-  inline size_t incremental_pooling_tile() const {
+  size_t incremental_pooling_tile() const {
     return this->incremental_pooling_tile_;
   }
 
-  inline MaxPoolMicrokernelTester& channels(size_t channels) {
+  MaxPoolMicrokernelTester& channels(size_t channels) {
     assert(channels != 0);
     this->channels_ = channels;
     return *this;
   }
 
-  inline size_t channels() const {
+  size_t channels() const {
     return this->channels_;
   }
 
-  inline MaxPoolMicrokernelTester& output_stride(size_t output_stride) {
+  MaxPoolMicrokernelTester& output_stride(size_t output_stride) {
     assert(output_stride != 0);
     this->output_stride_ = output_stride;
     return *this;
   }
 
-  inline size_t output_stride() const {
+  size_t output_stride() const {
     if (this->output_stride_ == 0) {
       return channels();
     } else {
@@ -127,30 +132,30 @@ class MaxPoolMicrokernelTester {
     }
   }
 
-  inline MaxPoolMicrokernelTester& qmin(int16_t qmin) {
+  MaxPoolMicrokernelTester& qmin(int16_t qmin) {
     this->qmin_ = qmin;
     return *this;
   }
 
-  inline int16_t qmin() const {
+  int16_t qmin() const {
     return this->qmin_;
   }
 
-  inline MaxPoolMicrokernelTester& qmax(int16_t qmax) {
+  MaxPoolMicrokernelTester& qmax(int16_t qmax) {
     this->qmax_ = qmax;
     return *this;
   }
 
-  inline int16_t qmax() const {
+  int16_t qmax() const {
     return this->qmax_;
   }
 
-  inline MaxPoolMicrokernelTester& iterations(size_t iterations) {
+  MaxPoolMicrokernelTester& iterations(size_t iterations) {
     this->iterations_ = iterations;
     return *this;
   }
 
-  inline size_t iterations() const {
+  size_t iterations() const {
     return this->iterations_;
   }
 
@@ -159,22 +164,20 @@ class MaxPoolMicrokernelTester {
     ASSERT_LE(qmax(), std::numeric_limits<int8_t>::max());
     ASSERT_LT(qmin(), qmax());
 
-    std::random_device random_device;
-    auto rng = std::mt19937(random_device());
+    xnnpack::ReplicableRandomDevice rng;
     std::uniform_int_distribution<int32_t> i8dist(
       std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max());
 
-    std::vector<const int8_t*> indirect_input((output_pixels() - 1) * step() + packed_pooling_elements());
-    std::vector<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) +
+    xnnpack::Buffer<const int8_t*> indirect_input((output_pixels() - 1) * step() + packed_pooling_elements());
+    xnnpack::Buffer<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) +
       indirect_input.size() * channels());
-    std::vector<int8_t> output(XNN_EXTRA_BYTES / sizeof(int8_t) +
+    xnnpack::Buffer<int8_t> output(XNN_EXTRA_BYTES / sizeof(int8_t) +
       (output_pixels() - 1) * output_stride() + channels());
-    std::vector<int8_t> output_ref(output_pixels() * channels());
+    xnnpack::Buffer<int8_t> output_ref(output_pixels() * channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       do {
         std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
       } while (input.size() > 1 && *std::max_element(input.cbegin(), input.cend()) == *std::min_element(input.cbegin(), input.cend()));
-      std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
       for (size_t i = 0; i < (output_pixels() - 1) * step() + pooling_elements(); i++) {
         indirect_input[i] = input.data() + i * channels() - input_offset();
@@ -231,22 +234,20 @@ class MaxPoolMicrokernelTester {
     ASSERT_LE(qmax(), std::numeric_limits<uint8_t>::max());
     ASSERT_LT(qmin(), qmax());
 
-    std::random_device random_device;
-    auto rng = std::mt19937(random_device());
+    xnnpack::ReplicableRandomDevice rng;
     std::uniform_int_distribution<int32_t> u8dist(
       std::numeric_limits<uint8_t>::min(), std::numeric_limits<uint8_t>::max());
 
-    std::vector<const uint8_t*> indirect_input((output_pixels() - 1) * step() + packed_pooling_elements());
-    std::vector<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) +
+    xnnpack::Buffer<const uint8_t*> indirect_input((output_pixels() - 1) * step() + packed_pooling_elements());
+    xnnpack::Buffer<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) +
       indirect_input.size() * channels());
-    std::vector<uint8_t> output(XNN_EXTRA_BYTES / sizeof(uint8_t) +
+    xnnpack::Buffer<uint8_t> output(XNN_EXTRA_BYTES / sizeof(uint8_t) +
       (output_pixels() - 1) * output_stride() + channels());
-    std::vector<uint8_t> output_ref(output_pixels() * channels());
+    xnnpack::Buffer<uint8_t> output_ref(output_pixels() * channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       do {
         std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
       } while (input.size() > 1 && *std::max_element(input.cbegin(), input.cend()) == *std::min_element(input.cbegin(), input.cend()));
-      std::fill(output.begin(), output.end(), UINT8_C(0xA5));
 
       for (size_t i = 0; i < (output_pixels() - 1) * step() + pooling_elements(); i++) {
         indirect_input[i] = input.data() + i * channels() - input_offset();
@@ -301,19 +302,17 @@ class MaxPoolMicrokernelTester {
   void Test(xnn_f16_maxpool_ukernel_fn maxpool, xnn_init_f16_minmax_params_fn init_params) const {
     ASSERT_LT(qmin(), qmax());
 
-    std::random_device random_device;
-    auto rng = std::mt19937(random_device());
+    xnnpack::ReplicableRandomDevice rng;
     std::uniform_real_distribution<float> f32dist(-1.0f, 1.0f);
 
-    std::vector<const uint16_t*> indirect_input((output_pixels() - 1) * step() + packed_pooling_elements());
-    std::vector<uint16_t> input(XNN_EXTRA_BYTES / sizeof(uint16_t) +
+    xnnpack::Buffer<const xnn_float16*> indirect_input((output_pixels() - 1) * step() + packed_pooling_elements());
+    xnnpack::Buffer<xnn_float16> input(XNN_EXTRA_BYTES / sizeof(xnn_float16) +
       ((output_pixels() - 1) * step() + pooling_elements()) * channels());
-    std::vector<uint16_t> output(XNN_EXTRA_BYTES / sizeof(uint16_t) +
+    xnnpack::Buffer<xnn_float16> output(XNN_EXTRA_BYTES / sizeof(xnn_float16) +
       (output_pixels() - 1) * output_stride() + channels());
-    std::vector<float> output_ref(output_pixels() * channels());
+    xnnpack::Buffer<float> output_ref(output_pixels() * channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(input.begin(), input.end(), [&]() { return fp16_ieee_from_fp32_value(f32dist(rng)); });
-      std::fill(output.begin(), output.end(), UINT16_C(0x7E00) /* NaN */);
+      std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
 
       for (size_t i = 0; i < (output_pixels() - 1) * step() + pooling_elements(); i++) {
         indirect_input[i] = input.data() + i * channels() - input_offset();
@@ -326,7 +325,7 @@ class MaxPoolMicrokernelTester {
         for (size_t c = 0; c < channels(); c++) {
           float max_value = -std::numeric_limits<float>::infinity();
           for (size_t p = 0; p < pooling_elements(); p++) {
-            max_value = std::max(max_value, fp16_ieee_to_fp32_value(indirect_input[x * step() + p][c + input_offset()]));
+            max_value = std::max<float>(max_value, indirect_input[x * step() + p][c + input_offset()]);
           }
           output_ref[x * channels() + c] = max_value;
         }
@@ -348,12 +347,12 @@ class MaxPoolMicrokernelTester {
       if (qmax() == std::numeric_limits<int16_t>::max()) {
         output_max = +std::numeric_limits<float>::infinity();
       }
-      output_min = fp16_ieee_to_fp32_value(fp16_ieee_from_fp32_value(output_min));
-      output_max = fp16_ieee_to_fp32_value(fp16_ieee_from_fp32_value(output_max));
+      output_min = xnn_float16(output_min);
+      output_max = xnn_float16(output_max);
 
       // Prepare parameters.
       xnn_f16_minmax_params params;
-      init_params(&params, fp16_ieee_from_fp32_value(output_min), fp16_ieee_from_fp32_value(output_max));
+      init_params(&params, static_cast<xnn_float16>(output_min), static_cast<xnn_float16>(output_max));
 
       // Clamp reference results.
       for (float& output_value : output_ref) {
@@ -362,23 +361,23 @@ class MaxPoolMicrokernelTester {
 
       // Call optimized micro-kernel.
       maxpool(output_pixels(), pooling_elements(), channels(),
-        reinterpret_cast<const void**>(indirect_input.data()), input_offset() * sizeof(uint16_t), output.data(),
+        reinterpret_cast<const xnn_float16**>(indirect_input.data()), input_offset() * sizeof(xnn_float16), output.data(),
         (step() - packed_pooling_elements()) * sizeof(void*),
-        (output_stride() - channels()) * sizeof(uint16_t),
+        (output_stride() - channels()) * sizeof(xnn_float16),
         &params);
 
       // Verify results.
       for (size_t x = 0; x < output_pixels(); x++) {
         for (size_t c = 0; c < channels(); c++) {
-          ASSERT_GE(fp16_ieee_to_fp32_value(output[x * output_stride() + c]), output_min)
+          ASSERT_GE(output[x * output_stride() + c], output_min)
             << "at pixel " << x << " / " << output_pixels() << ", channel " << c << " / " << channels()
             << ", pooling elements = " << pooling_elements() << ", step = " << step()
             << ", input offset = " << input_offset();
-          ASSERT_LE(fp16_ieee_to_fp32_value(output[x * output_stride() + c]), output_max)
+          ASSERT_LE(output[x * output_stride() + c], output_max)
             << "at pixel " << x << " / " << output_pixels() << ", channel " << c << " / " << channels()
             << ", pooling elements = " << pooling_elements() << ", step = " << step()
             << ", input offset = " << input_offset();
-          EXPECT_EQ(fp16_ieee_to_fp32_value(output[x * output_stride() + c]), output_ref[x * channels() + c])
+          EXPECT_EQ(output[x * output_stride() + c], output_ref[x * channels() + c])
             << "at pixel " << x << " / " << output_pixels() << ", channel " << c << " / " << channels()
             << ", pooling elements = " << pooling_elements() << ", step = " << step()
             << ", input offset = " << input_offset();
@@ -390,19 +389,17 @@ class MaxPoolMicrokernelTester {
   void Test(xnn_f32_maxpool_ukernel_fn maxpool, xnn_init_f32_minmax_params_fn init_params) const {
     ASSERT_LT(qmin(), qmax());
 
-    std::random_device random_device;
-    auto rng = std::mt19937(random_device());
+    xnnpack::ReplicableRandomDevice rng;
     std::uniform_real_distribution<float> f32dist(-1.0f, 1.0f);
 
-    std::vector<const float*> indirect_input((output_pixels() - 1) * step() + packed_pooling_elements());
-    std::vector<float> input(XNN_EXTRA_BYTES / sizeof(float) +
+    xnnpack::Buffer<const float*> indirect_input((output_pixels() - 1) * step() + packed_pooling_elements());
+    xnnpack::Buffer<float> input(XNN_EXTRA_BYTES / sizeof(float) +
       ((output_pixels() - 1) * step() + pooling_elements()) * channels());
-    std::vector<float> output(XNN_EXTRA_BYTES / sizeof(float) +
+    xnnpack::Buffer<float> output(XNN_EXTRA_BYTES / sizeof(float) +
       (output_pixels() - 1) * output_stride() + channels());
-    std::vector<float> output_ref(output_pixels() * channels());
+    xnnpack::Buffer<float> output_ref(output_pixels() * channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-      std::fill(output.begin(), output.end(), nanf(""));
 
       for (size_t i = 0; i < (output_pixels() - 1) * step() + pooling_elements(); i++) {
         indirect_input[i] = input.data() + i * channels() - input_offset();
@@ -472,6 +469,38 @@ class MaxPoolMicrokernelTester {
         }
       }
     }
+  }
+
+  struct Kernel {
+    explicit Kernel(xnn_s8_maxpool_ukernel_fn maxpool, xnn_init_s8_minmax_params_fn init_params) {
+      dispatch = [maxpool, init_params](MaxPoolMicrokernelTester& tester) {
+        tester.qmin(std::numeric_limits<int8_t>::min())
+              .qmax(std::numeric_limits<int8_t>::max())
+              .Test(maxpool, init_params);
+      };
+    }
+    explicit Kernel(xnn_u8_maxpool_ukernel_fn maxpool, xnn_init_u8_minmax_params_fn init_params) {
+      dispatch = [maxpool, init_params](MaxPoolMicrokernelTester& tester) {
+        tester.qmin(std::numeric_limits<uint8_t>::min())
+              .qmax(std::numeric_limits<uint8_t>::max())
+              .Test(maxpool, init_params);
+      };
+    }
+    explicit Kernel(xnn_f16_maxpool_ukernel_fn maxpool, xnn_init_f16_minmax_params_fn init_params) {
+      dispatch = [maxpool, init_params](MaxPoolMicrokernelTester& tester) {
+        tester.Test(maxpool, init_params);
+      };
+    }
+    explicit Kernel(xnn_f32_maxpool_ukernel_fn maxpool, xnn_init_f32_minmax_params_fn init_params) {
+      dispatch = [maxpool, init_params](MaxPoolMicrokernelTester& tester) {
+        tester.Test(maxpool, init_params);
+      };
+    }
+    std::function<void(MaxPoolMicrokernelTester&)> dispatch;
+  };
+
+  void Test(const Kernel& kernel) {
+    kernel.dispatch(*this);
   }
 
  private:

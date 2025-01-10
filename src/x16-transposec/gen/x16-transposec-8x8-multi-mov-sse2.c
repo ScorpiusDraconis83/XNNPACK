@@ -11,10 +11,10 @@
 
 #include <assert.h>
 
-#include <xnnpack/common.h>
-#include <xnnpack/math.h>
-#include <xnnpack/transpose.h>
-#include <xnnpack/unaligned.h>
+#include "xnnpack/common.h"
+#include "xnnpack/math.h"
+#include "xnnpack/transpose.h"
+#include "xnnpack/unaligned.h"
 
 
 void xnn_x16_transposec_ukernel__8x8_multi_mov_sse2(
@@ -23,11 +23,10 @@ void xnn_x16_transposec_ukernel__8x8_multi_mov_sse2(
     size_t input_stride,
     size_t output_stride,
     size_t block_width,
-    size_t block_height,
-    const union xnn_x16_transpose_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    size_t block_height) XNN_OOB_READS
 {
-  assert(output_stride >= block_height * sizeof(uint16_t));
-  assert(input_stride >= block_width * sizeof(uint16_t));
+  assert(block_width == 1 || output_stride >= block_height * sizeof(uint16_t));
+  assert(block_height == 1 || input_stride >= block_width * sizeof(uint16_t));
 
   const size_t tile_height = 8;
   const size_t tile_width = 8;

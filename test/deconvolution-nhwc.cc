@@ -3,12 +3,13 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include <cstddef>
+
 #include <gtest/gtest.h>
-
-#include <xnnpack/config.h>
-
+#include "xnnpack.h"
+#include "xnnpack/common.h"
+#include "xnnpack/config.h"
 #include "deconvolution-operator-tester.h"
-
 
 constexpr size_t kUnstridedInputHeight = 8;
 constexpr size_t kUnstridedInputWidth = 7;
@@ -18,7 +19,7 @@ constexpr size_t kStridedInputWidth = 5;
 
 /**************************** Future GEMM path ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_1x1) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -27,10 +28,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_1x1_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kUnstridedInputHeight - 2; input_height <= kUnstridedInputHeight + 2; input_height++) {
@@ -40,11 +41,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_varying_input_width) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_1x1_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kUnstridedInputWidth - 2; input_width <= kUnstridedInputWidth + 2; input_width++) {
@@ -54,11 +55,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_varying_input_height) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_1x1_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -68,11 +69,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_1x1_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -82,11 +83,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_1x1_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -96,10 +97,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(28)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_1x1_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -109,10 +110,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_with_output_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_1x1_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -122,10 +123,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_1x1_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -135,10 +136,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_1x1_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -148,12 +149,12 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_1x1_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** Future GEMM path, grouped ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_1x1) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -163,10 +164,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_1x1_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kUnstridedInputHeight - 2; input_height <= kUnstridedInputHeight + 2; input_height++) {
@@ -177,11 +178,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_varying_input_width) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_1x1_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kUnstridedInputWidth - 2; input_width <= kUnstridedInputWidth + 2; input_width++) {
@@ -192,11 +193,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_varying_input_height) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_1x1_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -207,11 +208,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_1x1_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -222,11 +223,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_1x1_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -237,10 +238,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(47)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_1x1_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -251,10 +252,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_with_output_stride) {
     .group_output_channels(gemm_config->nr + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_1x1_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -265,10 +266,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_1x1_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -279,10 +280,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_1x1_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -293,12 +294,12 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_1x1_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** Future GEMM path, batched ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_1x1) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_1x1) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -308,10 +309,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_1x1) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_1x1_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kUnstridedInputHeight - 2; input_height <= kUnstridedInputHeight + 2; input_height++) {
@@ -322,11 +323,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_varying_input_width) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_1x1_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kUnstridedInputWidth - 2; input_width <= kUnstridedInputWidth + 2; input_width++) {
@@ -337,11 +338,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_varying_input_height) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_1x1_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -352,11 +353,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_1x1_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -367,11 +368,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_1x1_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -382,10 +383,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(28)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_1x1_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -396,10 +397,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_with_output_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_1x1_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -410,10 +411,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_1x1_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -424,10 +425,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_1x1_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -438,12 +439,12 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_1x1_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** Future GEMM path, batched, grouped ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_1x1) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -454,10 +455,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_1x1_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kUnstridedInputHeight - 2; input_height <= kUnstridedInputHeight + 2; input_height++) {
@@ -469,11 +470,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_varying_input_width) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_1x1_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kUnstridedInputWidth - 2; input_width <= kUnstridedInputWidth + 2; input_width++) {
@@ -485,11 +486,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_varying_input_height) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_1x1_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -501,11 +502,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_1x1_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -517,11 +518,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_1x1_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -533,10 +534,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(47)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_1x1_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -548,10 +549,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_with_output_stride) {
     .group_output_channels(gemm_config->nr + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_1x1_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -563,10 +564,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_1x1_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -578,10 +579,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_1x1_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -593,12 +594,12 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_1x1_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** CONV path ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -608,10 +609,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, Kx3) {
+TEST(DECONVOLUTION_NHWC_QC8, Kx3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 1; kernel_height <= 4; kernel_height *= 2) {
@@ -622,11 +623,11 @@ TEST(DECONVOLUTION_NHWC_QS8, Kx3) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3xK) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3xK) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 1; kernel_width <= 4; kernel_width *= 2) {
@@ -637,11 +638,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3xK) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_height_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_varying_height_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_top = 0; padding_top <= 2; padding_top++) {
@@ -655,12 +656,12 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_height_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_width_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_varying_width_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_left = 0; padding_left <= 2; padding_left++) {
@@ -674,12 +675,12 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_width_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_varying_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_height = 1; adjustment_height <= 2; adjustment_height++) {
@@ -692,11 +693,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_height_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_varying_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_width = 1; adjustment_width <= 2; adjustment_width++) {
@@ -709,11 +710,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_width_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kUnstridedInputHeight - 2; input_height <= kUnstridedInputHeight + 2; input_height++) {
@@ -724,11 +725,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_input_height) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kUnstridedInputWidth - 2; input_width <= kUnstridedInputWidth + 2; input_width++) {
@@ -739,11 +740,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_input_width) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -754,11 +755,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -769,11 +770,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_height_dilation) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_with_height_dilation) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t dilation_height = 2; dilation_height <= 3; dilation_height++) {
@@ -785,11 +786,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_height_dilation) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_width_dilation) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_with_width_dilation) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t dilation_width = 2; dilation_width <= 3; dilation_width++) {
@@ -801,11 +802,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_width_dilation) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_height_dilation_and_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_with_height_dilation_and_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -817,10 +818,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_height_dilation_and_stride) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_width_dilation_and_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_with_width_dilation_and_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -832,10 +833,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_width_dilation_and_stride) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -846,10 +847,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(28)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -860,10 +861,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_output_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -874,10 +875,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -888,10 +889,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -902,10 +903,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_3x3) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_3x3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -916,12 +917,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_3x3) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** CONV path, grouped ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -932,10 +933,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_Kx3) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_Kx3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 1; kernel_height <= 4; kernel_height *= 2) {
@@ -947,11 +948,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_Kx3) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3xK) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3xK) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 1; kernel_width <= 4; kernel_width *= 2) {
@@ -963,11 +964,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3xK) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_height_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_varying_height_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_top = 0; padding_top <= 2; padding_top++) {
@@ -982,12 +983,12 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_height_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_width_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_varying_width_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_left = 0; padding_left <= 2; padding_left++) {
@@ -1002,12 +1003,12 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_width_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_varying_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_height = 1; adjustment_height <= 2; adjustment_height++) {
@@ -1021,11 +1022,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_height_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_varying_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_width = 1; adjustment_width <= 2; adjustment_width++) {
@@ -1039,11 +1040,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_width_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kUnstridedInputHeight - 2; input_height <= kUnstridedInputHeight + 2; input_height++) {
@@ -1055,11 +1056,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_input_height) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kUnstridedInputWidth - 2; input_width <= kUnstridedInputWidth + 2; input_width++) {
@@ -1071,11 +1072,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_input_width) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -1087,11 +1088,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -1103,11 +1104,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_height_dilation) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_with_height_dilation) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t dilation_height = 2; dilation_height <= 3; dilation_height++) {
@@ -1120,11 +1121,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_height_dilation) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_width_dilation) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_with_width_dilation) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t dilation_width = 2; dilation_width <= 3; dilation_width++) {
@@ -1137,11 +1138,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_width_dilation) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_height_dilation_and_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_with_height_dilation_and_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1154,10 +1155,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_height_dilation_and_stride) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_width_dilation_and_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_with_width_dilation_and_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1170,10 +1171,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_width_dilation_and_stride) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1185,10 +1186,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(47)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1200,10 +1201,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_output_stride) {
     .group_output_channels(gemm_config->nr + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1215,10 +1216,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1230,10 +1231,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1245,10 +1246,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_grouped_3x3) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_grouped_3x3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1260,12 +1261,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_grouped_3x3) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** CONV path, batched ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1276,10 +1277,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_Kx3) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_Kx3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 1; kernel_height <= 4; kernel_height *= 2) {
@@ -1291,11 +1292,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_Kx3) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3xK) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3xK) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 1; kernel_width <= 4; kernel_width *= 2) {
@@ -1307,11 +1308,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3xK) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_height_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_varying_height_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_top = 0; padding_top <= 2; padding_top++) {
@@ -1326,12 +1327,12 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_height_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_width_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_varying_width_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_left = 0; padding_left <= 2; padding_left++) {
@@ -1346,12 +1347,12 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_width_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_varying_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_height = 1; adjustment_height <= 2; adjustment_height++) {
@@ -1365,11 +1366,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_height_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_varying_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_width = 1; adjustment_width <= 2; adjustment_width++) {
@@ -1383,11 +1384,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_width_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kUnstridedInputHeight - 2; input_height <= kUnstridedInputHeight + 2; input_height++) {
@@ -1399,11 +1400,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_input_height) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kUnstridedInputWidth - 2; input_width <= kUnstridedInputWidth + 2; input_width++) {
@@ -1415,11 +1416,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_input_width) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -1431,11 +1432,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -1447,11 +1448,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_height_dilation) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_with_height_dilation) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t dilation_height = 2; dilation_height <= 3; dilation_height++) {
@@ -1464,11 +1465,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_height_dilation) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_width_dilation) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_with_width_dilation) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t dilation_width = 2; dilation_width <= 3; dilation_width++) {
@@ -1481,11 +1482,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_width_dilation) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_height_dilation_and_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_with_height_dilation_and_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1498,10 +1499,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_height_dilation_and_stride) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_width_dilation_and_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_with_width_dilation_and_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1514,10 +1515,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_width_dilation_and_stride) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1529,10 +1530,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(28)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1544,10 +1545,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_output_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1559,10 +1560,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1574,10 +1575,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1589,10 +1590,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_3x3) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_batched_3x3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1604,12 +1605,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_3x3) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** CONV path, grouped, batched ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1621,10 +1622,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_Kx3) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_Kx3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 1; kernel_height <= 4; kernel_height *= 2) {
@@ -1637,11 +1638,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_Kx3) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3xK) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3xK) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 1; kernel_width <= 4; kernel_width *= 2) {
@@ -1654,11 +1655,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3xK) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_height_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_varying_height_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_top = 0; padding_top <= 2; padding_top++) {
@@ -1674,12 +1675,12 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_height_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_width_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_varying_width_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_left = 0; padding_left <= 2; padding_left++) {
@@ -1695,12 +1696,12 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_width_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_varying_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_height = 1; adjustment_height <= 2; adjustment_height++) {
@@ -1715,11 +1716,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_height_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_varying_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_width = 1; adjustment_width <= 2; adjustment_width++) {
@@ -1734,11 +1735,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_width_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kUnstridedInputHeight - 2; input_height <= kUnstridedInputHeight + 2; input_height++) {
@@ -1751,11 +1752,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_input_height) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kUnstridedInputWidth - 2; input_width <= kUnstridedInputWidth + 2; input_width++) {
@@ -1768,11 +1769,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_input_width) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -1785,11 +1786,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -1802,11 +1803,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_height_dilation) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_with_height_dilation) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t dilation_height = 2; dilation_height <= 3; dilation_height++) {
@@ -1820,11 +1821,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_height_dilation) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_width_dilation) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_with_width_dilation) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t dilation_width = 2; dilation_width <= 3; dilation_width++) {
@@ -1838,11 +1839,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_width_dilation) {
       .group_input_channels(23)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_height_dilation_and_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_with_height_dilation_and_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1856,10 +1857,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_height_dilation_and_stride
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_width_dilation_and_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_with_width_dilation_and_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1873,10 +1874,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_width_dilation_and_stride)
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1889,10 +1890,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(47)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1905,10 +1906,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_output_stride) {
     .group_output_channels(gemm_config->nr + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1921,10 +1922,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1937,10 +1938,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1953,10 +1954,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_grouped_3x3) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_batched_grouped_3x3) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -1969,12 +1970,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_grouped_3x3) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** CONV path, setup ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_setup_changing_batch) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_setup_changing_batch) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   DeconvolutionOperatorTester()
     .batch_size(2)
@@ -1988,7 +1989,7 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_setup_changing_batch) {
     .TestSetupQS8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_setup_changing_height) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_setup_changing_height) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   DeconvolutionOperatorTester()
     .batch_size(2)
@@ -2002,7 +2003,7 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_setup_changing_height) {
     .TestSetupQS8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_setup_changing_width) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3_setup_changing_width) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   DeconvolutionOperatorTester()
     .batch_size(2)
@@ -2018,7 +2019,7 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3_setup_changing_width) {
 
 /**************************** SUBCONV2D/IGEMM path ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2029,10 +2030,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, Kx3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, Kx3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 2; kernel_height <= 5; kernel_height++) {
@@ -2044,11 +2045,11 @@ TEST(DECONVOLUTION_NHWC_QS8, Kx3s2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3xKs2) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3xKs2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 2; kernel_width <= 5; kernel_width++) {
@@ -2060,11 +2061,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3xKs2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3sSx1) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3sSx1) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t stride_height = 2; stride_height <= 3; stride_height++) {
@@ -2077,11 +2078,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3sSx1) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s1xS) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s1xS) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t stride_width = 2; stride_width <= 3; stride_width++) {
@@ -2094,11 +2095,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s1xS) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_height_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_varying_height_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_top = 0; padding_top <= 2; padding_top++) {
@@ -2113,12 +2114,12 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_height_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_width_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_varying_width_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_left = 0; padding_left <= 2; padding_left++) {
@@ -2133,12 +2134,12 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_width_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_varying_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_height = 0; adjustment_height <= 1; adjustment_height++) {
@@ -2151,11 +2152,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_height_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_varying_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_width = 0; adjustment_width <= 1; adjustment_width++) {
@@ -2168,11 +2169,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_width_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kStridedInputHeight - 2; input_height <= kStridedInputHeight + 2; input_height++) {
@@ -2184,11 +2185,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_input_height) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kStridedInputWidth - 2; input_width <= kStridedInputWidth + 2; input_width++) {
@@ -2200,11 +2201,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_input_width) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -2216,11 +2217,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -2232,11 +2233,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2248,10 +2249,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(28)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2263,10 +2264,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_with_output_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2278,10 +2279,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2293,10 +2294,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2308,10 +2309,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_3x3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_3x3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2323,12 +2324,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_3x3s2) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** SUBCONV2D/IGEMM path, grouped ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2340,10 +2341,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_Kx3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_Kx3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 2; kernel_height <= 5; kernel_height++) {
@@ -2356,11 +2357,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_Kx3s2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3xKs2) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3xKs2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 2; kernel_width <= 5; kernel_width++) {
@@ -2373,11 +2374,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3xKs2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3sSx1) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3sSx1) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t stride_height = 2; stride_height <= 3; stride_height++) {
@@ -2391,11 +2392,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3sSx1) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s1xS) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s1xS) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t stride_width = 2; stride_width <= 3; stride_width++) {
@@ -2409,11 +2410,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s1xS) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_height_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_varying_height_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_top = 0; padding_top <= 2; padding_top++) {
@@ -2429,12 +2430,12 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_height_padding) {
         .group_input_channels(17)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_width_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_varying_width_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_left = 0; padding_left <= 2; padding_left++) {
@@ -2450,12 +2451,12 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_width_padding) {
         .group_input_channels(17)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_varying_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_height = 0; adjustment_height <= 1; adjustment_height++) {
@@ -2469,11 +2470,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_height_adjustment) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_varying_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_width = 0; adjustment_width <= 1; adjustment_width++) {
@@ -2487,11 +2488,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_width_adjustment) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kStridedInputHeight - 2; input_height <= kStridedInputHeight + 2; input_height++) {
@@ -2504,11 +2505,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_input_height) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kStridedInputWidth - 2; input_width <= kStridedInputWidth + 2; input_width++) {
@@ -2521,11 +2522,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_input_width) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 14; input_channels <= 20; input_channels++) {
@@ -2538,11 +2539,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -2555,11 +2556,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_varying_output_channels) {
       .group_input_channels(17)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2572,10 +2573,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(37)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2588,10 +2589,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_with_output_stride) {
     .group_output_channels(gemm_config->nr + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2604,10 +2605,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2620,10 +2621,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_3x3s2_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2636,10 +2637,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_3x3s2_without_bias) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_grouped_3x3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_grouped_3x3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2652,12 +2653,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_grouped_3x3s2) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** SUBCONV2D/IGEMM path, batched ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2669,10 +2670,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_Kx3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_Kx3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 2; kernel_height <= 5; kernel_height++) {
@@ -2685,11 +2686,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_Kx3s2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3xKs2) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3xKs2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 2; kernel_width <= 5; kernel_width++) {
@@ -2702,11 +2703,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3xKs2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3sSx1) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3sSx1) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t stride_height = 2; stride_height <= 3; stride_height++) {
@@ -2720,11 +2721,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3sSx1) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s1xS) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s1xS) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t stride_width = 2; stride_width <= 3; stride_width++) {
@@ -2738,11 +2739,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s1xS) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_height_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_varying_height_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_top = 0; padding_top <= 2; padding_top++) {
@@ -2758,12 +2759,12 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_height_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_width_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_varying_width_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_left = 0; padding_left <= 2; padding_left++) {
@@ -2779,12 +2780,12 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_width_padding) {
         .group_input_channels(15)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_varying_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_height = 0; adjustment_height <= 1; adjustment_height++) {
@@ -2798,11 +2799,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_height_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_varying_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_width = 0; adjustment_width <= 1; adjustment_width++) {
@@ -2816,11 +2817,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_width_adjustment) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kStridedInputHeight - 2; input_height <= kStridedInputHeight + 2; input_height++) {
@@ -2833,11 +2834,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_input_height) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kStridedInputWidth - 2; input_width <= kStridedInputWidth + 2; input_width++) {
@@ -2850,11 +2851,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_input_width) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -2867,11 +2868,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -2884,11 +2885,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2901,10 +2902,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(28)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2917,10 +2918,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_with_output_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2933,10 +2934,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2949,10 +2950,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_3x3s2_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2965,10 +2966,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_3x3s2_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_3x3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_batched_3x3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2981,12 +2982,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_3x3s2) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** SUBCONV2D/IGEMM path, grouped, batched ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -2999,10 +3000,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_Kx3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_Kx3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 2; kernel_height <= 5; kernel_height++) {
@@ -3016,11 +3017,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_Kx3s2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3xKs2) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3xKs2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 2; kernel_width <= 5; kernel_width++) {
@@ -3034,11 +3035,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3xKs2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3sSx1) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3sSx1) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t stride_height = 2; stride_height <= 3; stride_height++) {
@@ -3053,11 +3054,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3sSx1) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s1xS) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s1xS) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t stride_width = 2; stride_width <= 3; stride_width++) {
@@ -3072,11 +3073,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s1xS) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_height_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_varying_height_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_top = 0; padding_top <= 2; padding_top++) {
@@ -3093,12 +3094,12 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_height_padding) {
         .group_input_channels(17)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_width_padding) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_varying_width_padding) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t padding_left = 0; padding_left <= 2; padding_left++) {
@@ -3115,12 +3116,12 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_width_padding) {
         .group_input_channels(17)
         .group_output_channels(gemm_config->nr * 2 + 3)
         .iterations(1)
-        .TestQS8();
+        .TestQC8();
     }
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_varying_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_height = 0; adjustment_height <= 1; adjustment_height++) {
@@ -3135,11 +3136,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_height_adjustment) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_varying_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t adjustment_width = 0; adjustment_width <= 1; adjustment_width++) {
@@ -3154,11 +3155,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_width_adjustment) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kStridedInputHeight - 2; input_height <= kStridedInputHeight + 2; input_height++) {
@@ -3172,11 +3173,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_input_height) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kStridedInputWidth - 2; input_width <= kStridedInputWidth + 2; input_width++) {
@@ -3190,11 +3191,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_input_width) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 14; input_channels <= 20; input_channels++) {
@@ -3208,11 +3209,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -3226,11 +3227,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_varying_output_channels) {
       .group_input_channels(17)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3244,10 +3245,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(37)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3261,10 +3262,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_with_output_stride) {
     .group_output_channels(gemm_config->nr + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3278,10 +3279,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3295,10 +3296,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_3x3s2_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3312,10 +3313,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_3x3s2_without_bias) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_grouped_3x3s2) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_batched_grouped_3x3s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3329,12 +3330,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_grouped_3x3s2) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** SUBCONV2D/IGEMM path, setup ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_setup_changing_batch) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_setup_changing_batch) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   DeconvolutionOperatorTester()
     .batch_size(2)
@@ -3349,7 +3350,7 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_setup_changing_batch) {
     .TestSetupQS8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_setup_changing_height) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_setup_changing_height) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   DeconvolutionOperatorTester()
     .batch_size(2)
@@ -3364,7 +3365,7 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_setup_changing_height) {
     .TestSetupQS8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_setup_changing_width) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_3x3s2_setup_changing_width) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   DeconvolutionOperatorTester()
     .batch_size(2)
@@ -3381,7 +3382,7 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_3x3s2_setup_changing_width) {
 
 /**************************** SUBCONV2D/GEMM path ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3391,10 +3392,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, Kx2sKx2) {
+TEST(DECONVOLUTION_NHWC_QC8, Kx2sKx2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 3; kernel_height <= 5; kernel_height++) {
@@ -3405,11 +3406,11 @@ TEST(DECONVOLUTION_NHWC_QS8, Kx2sKx2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2xKs2xK) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2xKs2xK) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 3; kernel_width <= 5; kernel_width++) {
@@ -3420,11 +3421,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2xKs2xK) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3435,10 +3436,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_height_adjustment) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(1)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3449,10 +3450,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_width_adjustment) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(1)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kStridedInputHeight - 2; input_height <= kStridedInputHeight + 2; input_height++) {
@@ -3463,11 +3464,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_varying_input_height) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kStridedInputWidth - 2; input_width <= kStridedInputWidth + 2; input_width++) {
@@ -3478,11 +3479,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_varying_input_width) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -3493,11 +3494,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -3508,11 +3509,11 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3523,10 +3524,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(28)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3537,10 +3538,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_with_output_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3551,10 +3552,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3565,10 +3566,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3579,10 +3580,10 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_2x2s2) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_2x2s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3593,12 +3594,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_2x2s2) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** SUBCONV2D/GEMM path, grouped ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3609,10 +3610,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_Kx2sKx2) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_Kx2sKx2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 3; kernel_height <= 5; kernel_height++) {
@@ -3624,11 +3625,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_Kx2sKx2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2xKs2xK) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2xKs2xK) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 3; kernel_width <= 5; kernel_width++) {
@@ -3640,11 +3641,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2xKs2xK) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3656,10 +3657,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_height_adjustment) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(1)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3671,10 +3672,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_width_adjustment) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(1)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kStridedInputHeight - 2; input_height <= kStridedInputHeight + 2; input_height++) {
@@ -3686,11 +3687,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_varying_input_height) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kStridedInputWidth - 2; input_width <= kStridedInputWidth + 2; input_width++) {
@@ -3702,11 +3703,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_varying_input_width) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 14; input_channels <= 20; input_channels++) {
@@ -3718,11 +3719,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -3734,11 +3735,11 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_varying_output_channels) {
       .group_input_channels(17)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3750,10 +3751,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(37)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3765,10 +3766,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_with_output_stride) {
     .group_output_channels(gemm_config->nr + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3780,10 +3781,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3795,10 +3796,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, grouped_2x2s2_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3810,10 +3811,10 @@ TEST(DECONVOLUTION_NHWC_QS8, grouped_2x2s2_without_bias) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_grouped_2x2s2) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_grouped_2x2s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3825,12 +3826,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_grouped_2x2s2) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** SUBCONV2D/GEMM path, batched ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3841,10 +3842,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_Kx2sKx2) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_Kx2sKx2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 3; kernel_height <= 5; kernel_height++) {
@@ -3856,11 +3857,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_Kx2sKx2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2xKs2xK) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2xKs2xK) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 3; kernel_width <= 5; kernel_width++) {
@@ -3872,11 +3873,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2xKs2xK) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3888,10 +3889,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_height_adjustment) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(1)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3903,10 +3904,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_width_adjustment) {
     .group_input_channels(15)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(1)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kStridedInputHeight - 2; input_height <= kStridedInputHeight + 2; input_height++) {
@@ -3918,11 +3919,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_varying_input_height) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kStridedInputWidth - 2; input_width <= kStridedInputWidth + 2; input_width++) {
@@ -3934,11 +3935,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_varying_input_width) {
       .group_input_channels(15)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 1; input_channels <= 16; input_channels *= 4) {
@@ -3950,11 +3951,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -3966,11 +3967,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_varying_output_channels) {
       .group_input_channels(23)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3982,10 +3983,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(28)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -3997,10 +3998,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_with_output_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4012,10 +4013,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4027,10 +4028,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_2x2s2_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4042,10 +4043,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_2x2s2_without_bias) {
     .group_input_channels(23)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_2x2s2) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_batched_2x2s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4057,12 +4058,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_2x2s2) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** SUBCONV2D/GEMM path, grouped, batched ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4074,10 +4075,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_Kx2sKx2) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_Kx2sKx2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_height = 3; kernel_height <= 5; kernel_height++) {
@@ -4090,11 +4091,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_Kx2sKx2) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2xKs2xK) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2xKs2xK) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t kernel_width = 3; kernel_width <= 5; kernel_width++) {
@@ -4107,11 +4108,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2xKs2xK) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(3)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_height_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2_height_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4124,10 +4125,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_height_adjustment) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(1)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_width_adjustment) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2_width_adjustment) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4140,10 +4141,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_width_adjustment) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(1)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_varying_input_height) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2_varying_input_height) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_height = kStridedInputHeight - 2; input_height <= kStridedInputHeight + 2; input_height++) {
@@ -4156,11 +4157,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_varying_input_height) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_varying_input_width) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2_varying_input_width) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_width = kStridedInputWidth - 2; input_width <= kStridedInputWidth + 2; input_width++) {
@@ -4173,11 +4174,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_varying_input_width) {
       .group_input_channels(17)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_varying_input_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2_varying_input_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t input_channels = 14; input_channels <= 20; input_channels++) {
@@ -4190,11 +4191,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_varying_input_channels) {
       .group_input_channels(input_channels)
       .group_output_channels(gemm_config->nr * 2 + 3)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_varying_output_channels) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2_varying_output_channels) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   for (size_t output_channels = 1; output_channels <= gemm_config->nr * 2; output_channels *= 2) {
@@ -4207,11 +4208,11 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_varying_output_channels) {
       .group_input_channels(17)
       .group_output_channels(output_channels)
       .iterations(1)
-      .TestQS8();
+      .TestQC8();
   }
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_with_input_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2_with_input_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4224,10 +4225,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_with_input_stride) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .input_pixel_stride(37)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_with_output_stride) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2_with_output_stride) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4240,10 +4241,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_with_output_stride) {
     .group_output_channels(gemm_config->nr + 3)
     .output_pixel_stride(gemm_config->nr * 2 + 13)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_with_qmin) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2_with_qmin) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4256,10 +4257,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_with_qmin) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmin(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_with_qmax) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2_with_qmax) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4272,10 +4273,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_with_qmax) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .qmax(128)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_without_bias) {
+TEST(DECONVOLUTION_NHWC_QC8, batched_grouped_2x2s2_without_bias) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4288,10 +4289,10 @@ TEST(DECONVOLUTION_NHWC_QS8, batched_grouped_2x2s2_without_bias) {
     .group_input_channels(17)
     .group_output_channels(gemm_config->nr * 2 + 3)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_grouped_2x2s2) {
+TEST(DECONVOLUTION_NHWC_QC8, weights_cache_batched_grouped_2x2s2) {
   const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   ASSERT_NE(gemm_config, nullptr);
   DeconvolutionOperatorTester()
@@ -4304,12 +4305,12 @@ TEST(DECONVOLUTION_NHWC_QS8, weights_cache_batched_grouped_2x2s2) {
     .group_output_channels(gemm_config->nr * 2 + 3)
     .use_weights_cache(true)
     .iterations(3)
-    .TestQS8();
+    .TestQC8();
 }
 
 /**************************** SUBCONV2D/GEMM path, setup ****************************/
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_setup_changing_batch) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_setup_changing_batch) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   DeconvolutionOperatorTester()
     .batch_size(2)
@@ -4323,7 +4324,7 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_setup_changing_batch) {
     .TestSetupQS8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_setup_changing_height) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_setup_changing_height) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   DeconvolutionOperatorTester()
     .batch_size(2)
@@ -4337,7 +4338,7 @@ TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_setup_changing_height) {
     .TestSetupQS8();
 }
 
-TEST(DECONVOLUTION_NHWC_QS8, kernel_2x2s2_setup_changing_width) {
+TEST(DECONVOLUTION_NHWC_QC8, kernel_2x2s2_setup_changing_width) {
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
   DeconvolutionOperatorTester()
     .batch_size(2)

@@ -8,69 +8,67 @@
 
 #pragma once
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <functional>
 #include <limits>
 #include <random>
 #include <vector>
 
-#include <xnnpack/microfnptr.h>
-
+#include <gtest/gtest.h>
+#include "xnnpack/microfnptr.h"
+#include "xnnpack/buffer.h"
+#include "replicable_random_device.h"
 
 class LUTNormMicrokernelTester {
  public:
-  inline LUTNormMicrokernelTester& n(size_t n) {
+  LUTNormMicrokernelTester& n(size_t n) {
     assert(n != 0);
     this->n_ = n;
     return *this;
   }
 
-  inline size_t n() const {
+  size_t n() const {
     return this->n_;
   }
 
-  inline LUTNormMicrokernelTester& inplace(bool inplace) {
+  LUTNormMicrokernelTester& inplace(bool inplace) {
     this->inplace_ = inplace;
     return *this;
   }
 
-  inline bool inplace() const {
+  bool inplace() const {
     return this->inplace_;
   }
 
-  inline LUTNormMicrokernelTester& iterations(size_t iterations) {
+  LUTNormMicrokernelTester& iterations(size_t iterations) {
     this->iterations_ = iterations;
     return *this;
   }
 
-  inline size_t iterations() const {
+  size_t iterations() const {
     return this->iterations_;
   }
 
   void Test(xnn_u8_lut32norm_ukernel_fn lutnorm) const {
-    std::random_device random_device;
-    auto rng = std::mt19937(random_device());
-    auto u8rng = std::bind(std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), rng);
-    auto u32rng = std::bind(
-      std::uniform_int_distribution<uint32_t>(1, std::numeric_limits<uint32_t>::max() / (257 * n())),
-      rng);
+    xnnpack::ReplicableRandomDevice rng;
+    auto u32rng = [&]() {
+      return std::uniform_int_distribution<uint32_t>(
+          1, std::numeric_limits<uint32_t>::max() / (257 * n()))(rng);
+    };
 
-    std::vector<uint8_t> x(n());
-    std::vector<uint32_t> t(256);
-    std::vector<uint8_t> y(n());
-    std::vector<float> y_ref(n());
+    xnnpack::Buffer<uint8_t> x(n());
+    xnnpack::Buffer<uint32_t> t(256);
+    xnnpack::Buffer<uint8_t> y(n());
+    xnnpack::Buffer<float> y_ref(n());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(x.begin(), x.end(), std::ref(u8rng));
+      xnnpack::fill_uniform_random_bits(x.data(), x.size(), rng);
       std::generate(t.begin(), t.end(), std::ref(u32rng));
       if (inplace()) {
-        std::generate(y.begin(), y.end(), std::ref(u8rng));
-      } else {
-        std::fill(y.begin(), y.end(), 0xA5);
+        xnnpack::fill_uniform_random_bits(y.data(), y.size(), rng);
       }
       const uint8_t* x_data = inplace() ? y.data() : x.data();
 

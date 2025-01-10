@@ -11,15 +11,15 @@
 
 #include <arm_neon.h>
 
-#include <xnnpack/common.h>
-#include <xnnpack/reduce.h>
+#include "xnnpack/common.h"
+#include "xnnpack/reduce.h"
 
 
 void xnn_f32_rsum_ukernel__neon_u8_acc2(
     size_t batch,
     const float* input,
     float* output,
-    const union xnn_f32_scale_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const struct xnn_f32_scale_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(batch != 0);
   assert(batch % sizeof(float) == 0);
@@ -52,5 +52,5 @@ void xnn_f32_rsum_ukernel__neon_u8_acc2(
     vacc = vadd_f32(vacc, vt);
   }
   vacc = vmul_f32(vacc, vscale);
-  vst1_lane_f32(output, vacc, 0);
+  *output += vget_lane_f32(vacc, 0);
 }

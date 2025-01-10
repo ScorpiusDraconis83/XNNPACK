@@ -5,20 +5,19 @@
 
 #pragma once
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include <numeric>
 #include <vector>
 
-#include <xnnpack.h>
-#include <xnnpack/aligned-allocator.h>
-#include <xnnpack/math.h>
-#include <xnnpack/microfnptr.h>
-#include <xnnpack/pack.h>
+#include <gtest/gtest.h>
+#include "xnnpack/math.h"
+#include "xnnpack/microfnptr.h"
+#include "xnnpack/buffer.h"
 
 // Reference bias packing function for f32.
 static void f32_packb_reference(
@@ -84,71 +83,71 @@ static void f32_packb_reference(
 class PackBMicrokernelTester {
  public:
 
-  inline PackBMicrokernelTester& groups(size_t groups) {
+  PackBMicrokernelTester& groups(size_t groups) {
     this->groups_ = groups;
     return *this;
   }
 
-  inline size_t groups() const {
+  size_t groups() const {
     return this->groups_;
   }
 
-  inline PackBMicrokernelTester& channel_tile(size_t channel_tile) {
+  PackBMicrokernelTester& channel_tile(size_t channel_tile) {
     this->channel_tile_ = channel_tile;
     return *this;
   }
 
-  inline size_t channel_tile() const {
+  size_t channel_tile() const {
     return this->channel_tile_;
   }
 
-  inline PackBMicrokernelTester& channel_subtile(size_t channel_subtile) {
+  PackBMicrokernelTester& channel_subtile(size_t channel_subtile) {
     this->channel_subtile_ = channel_subtile;
     return *this;
   }
 
-  inline size_t channel_subtile() const {
+  size_t channel_subtile() const {
     return this->channel_subtile_;
   }
 
-  inline PackBMicrokernelTester& channel_round(size_t channel_round) {
+  PackBMicrokernelTester& channel_round(size_t channel_round) {
     this->channel_round_ = channel_round;
     return *this;
   }
 
-  inline size_t channel_round() const {
+  size_t channel_round() const {
     return this->channel_round_;
   }
 
-  inline PackBMicrokernelTester& channels(size_t channels) {
+  PackBMicrokernelTester& channels(size_t channels) {
     assert(channels != 0);
     this->channels_ = channels;
     return *this;
   }
 
-  inline size_t channels() const {
+  size_t channels() const {
     return this->channels_;
   }
 
-  inline size_t packed_channels() const {
+  size_t packed_channels() const {
     return round_up(channels(), channel_subtile());
   }
 
-  inline PackBMicrokernelTester& kernel_tile(size_t kernel_tile) {
+  PackBMicrokernelTester& kernel_tile(size_t kernel_tile) {
     this->kernel_tile_ = kernel_tile;
     return *this;
   }
 
-  inline size_t kernel_tile() const {
+  size_t kernel_tile() const {
     return this->kernel_tile_;
   }
 
   void Test(xnn_x32_packb_gemm_ukernel_fn packb) const {
-    std::vector<uint32_t> weights(groups() * channels() * kernel_tile());
-    std::vector<uint32_t> bias(groups() * channels());
-    std::vector<uint32_t, AlignedAllocator<uint32_t, 64>> packed_w(
-      groups() * (packed_channels() * kernel_tile() + packed_channels()));
-    std::vector<uint32_t> packed_w_ref(groups() * (packed_channels() * kernel_tile() + packed_channels()));
+    xnnpack::Buffer<uint32_t> weights(groups() * channels() * kernel_tile());
+    xnnpack::Buffer<uint32_t> bias(groups() * channels());
+    xnnpack::Buffer<uint32_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+        groups() * (packed_channels() * kernel_tile() + packed_channels()));
+    xnnpack::Buffer<uint32_t> packed_w_ref(groups() * (packed_channels() * kernel_tile() + packed_channels()));
 
     std::fill(weights.begin(), weights.end(), 0xDEADBEEF);
     std::iota(bias.begin(), bias.end(), UINT32_C(0x80000000));
@@ -184,10 +183,10 @@ class PackBMicrokernelTester {
   }
 
   void Test(xnn_x32_zerob_gemm_ukernel_fn zerob) const {
-    std::vector<uint32_t> weights(groups() * channels() * kernel_tile());
-    std::vector<uint32_t, AlignedAllocator<uint32_t, 64>> packed_w(
-      groups() * (packed_channels() * kernel_tile() + packed_channels()));
-    std::vector<uint32_t> packed_w_ref(groups() * (packed_channels() * kernel_tile() + packed_channels()));
+    xnnpack::Buffer<uint32_t> weights(groups() * channels() * kernel_tile());
+    xnnpack::Buffer<uint32_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+        groups() * (packed_channels() * kernel_tile() + packed_channels()));
+    xnnpack::Buffer<uint32_t> packed_w_ref(groups() * (packed_channels() * kernel_tile() + packed_channels()));
 
     std::fill(weights.begin(), weights.end(), 0xDEADBEEF);
     std::fill(packed_w.begin(), packed_w.end(), UINT32_C(0x12345678));
@@ -222,6 +221,20 @@ class PackBMicrokernelTester {
     }
   }
 
+  struct Kernel {
+    explicit Kernel(xnn_x32_packb_gemm_ukernel_fn packb) {
+      dispatch = [packb](const PackBMicrokernelTester& tester) { tester.Test(packb); };
+    }
+    explicit Kernel(xnn_x32_zerob_gemm_ukernel_fn zerob) {
+      dispatch = [zerob](const PackBMicrokernelTester& tester) { tester.Test(zerob); };
+    }
+    std::function<void(const PackBMicrokernelTester)> dispatch;
+  };
+
+  void Test(const Kernel& kernel) const {
+    kernel.dispatch(*this);
+  }
+
  private:
   size_t groups_{1};
   size_t channels_{1};
@@ -230,3 +243,4 @@ class PackBMicrokernelTester {
   size_t channel_round_{1};
   size_t kernel_tile_{1};
 };
+
