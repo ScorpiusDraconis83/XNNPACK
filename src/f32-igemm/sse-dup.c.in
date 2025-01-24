@@ -10,7 +10,7 @@ $SSE_HEADER = {1: "xmmintrin.h", 2: "emmintrin.h"}[SSE]
 
 #include <${SSE_HEADER}>
 
-#include <xnnpack/igemm.h>
+#include "xnnpack/igemm.h"
 
 
 $ISA = {1: "sse", 2: "sse2"}[SSE]
@@ -55,6 +55,11 @@ void xnn_f32_igemm_minmax_ukernel_${MR}x${NR}__${ISA}_dup(
       if XNN_UNPREDICTABLE(mr < ${M+1}) {
         c${M} = c${M-1};
       }
+
+  const __m128 vmin = _mm_set1_ps(params->scalar.min);
+  const __m128 vmax = _mm_set1_ps(params->scalar.max);
+  XNN_FORCE_REALIZATION(vmin);
+  XNN_FORCE_REALIZATION(vmax);
 
   do {
     __m128 vacc0x${ABC[0:4]} = _mm_load_ps(w);
@@ -120,12 +125,10 @@ void xnn_f32_igemm_minmax_ukernel_${MR}x${NR}__${ISA}_dup(
       p -= ${MR} * sizeof(void*);
     } while (p != 0);
 
-    const __m128 vmax = _mm_load_ps(params->sse.max);
     $for N in range(0, NR, 4):
       $for M in range(MR):
         vacc${M}x${ABC[N:N+4]} = _mm_min_ps(vacc${M}x${ABC[N:N+4]}, vmax);
 
-    const __m128 vmin = _mm_load_ps(params->sse.min);
     $for N in range(0, NR, 4):
       $for M in range(MR):
         vacc${M}x${ABC[N:N+4]} = _mm_max_ps(vacc${M}x${ABC[N:N+4]}, vmin);

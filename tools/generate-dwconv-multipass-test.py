@@ -5,8 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import argparse
-import bisect
 import codecs
+import collections
 import math
 import os
 import re
@@ -20,8 +20,8 @@ import xnncommon
 
 
 parser = argparse.ArgumentParser(description='XNNPACK generator')
-parser.add_argument("-s", "--spec", metavar="FILE", required=True,
-                    help="Spec (YAML) file")
+parser.add_argument("-k", "--ukernel", required=True,
+                    help="microkernel")
 parser.add_argument("-o", "--output", metavar="FILE", required=True,
                     help='Output (C++ source) file')
 parser.set_defaults(defines=list())
@@ -48,417 +48,361 @@ def split_ukernel_name(name):
   return (first_pass_tile, middle_pass_tile, last_pass_tile, channel_tile, channel_subtile, channel_round, requantization, arch, isa, assembly)
 
 
-DWCONV_TEST_CODE = """\
-TEST(${TEST_NAME}, c_eq_${CBLOCK}_first_pass_plus_one) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  DWConvMicrokernelTester()
-    .first_pass_tile(${FIRST_PASS_TILE})
-    .middle_pass_tile(${MIDDLE_PASS_TILE})
-    .last_pass_tile(${LAST_PASS_TILE})
-    .channel_tile(${CR})
-    .channel_subtile(${CHANNEL_SUBTILE})
-    .channel_round(${CHANNEL_ROUND})
-    .kernel_size(${FIRST_PASS_TILE+1})
-    .channels(${CBLOCK})
-    .Test(${", ".join(TEST_ARGS)});
-}
+DWCONV_CREATE_TESTS_CODE = """\
+std::vector<DWConvTestParams> CreateTests(
+    size_t c_block, size_t cr, size_t kr,
+    size_t first_pass_tile, size_t middle_pass_tile, size_t last_pass_tile,
+    size_t channel_subtile, size_t channel_round,
+    std::function<void(DWConvMicrokernelTester& tester)> test_func,
+    std::function<void()> isa_check = nullptr) {
+  const std::string cbs = std::to_string(c_block);
 
-TEST(${TEST_NAME}, c_eq_${CBLOCK}_first_pass_and_last_pass) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  DWConvMicrokernelTester()
-    .first_pass_tile(${FIRST_PASS_TILE})
-    .middle_pass_tile(${MIDDLE_PASS_TILE})
-    .last_pass_tile(${LAST_PASS_TILE})
-    .channel_tile(${CR})
-    .channel_subtile(${CHANNEL_SUBTILE})
-    .channel_round(${CHANNEL_ROUND})
-    .kernel_size(${FIRST_PASS_TILE+LAST_PASS_TILE})
-    .channels(${CBLOCK})
-    .Test(${", ".join(TEST_ARGS)});
-}
+  std::vector<DWConvTestParams> tests;
+  tests.reserve(17);
 
-TEST(${TEST_NAME}, c_eq_${CBLOCK}_multipass) {
-  for (uint32_t kernel_size = ${FIRST_PASS_TILE+MIDDLE_PASS_TILE+LAST_PASS_TILE}; kernel_size < ${FIRST_PASS_TILE+MIDDLE_PASS_TILE*2+LAST_PASS_TILE}; kernel_size++) {
-    $if ISA_CHECK:
-      ${ISA_CHECK};
-    DWConvMicrokernelTester()
-      .first_pass_tile(${FIRST_PASS_TILE})
-      .middle_pass_tile(${MIDDLE_PASS_TILE})
-      .last_pass_tile(${LAST_PASS_TILE})
-      .channel_tile(${CR})
-      .channel_subtile(${CHANNEL_SUBTILE})
-      .channel_round(${CHANNEL_ROUND})
-      .kernel_size(kernel_size)
-      .channels(${CBLOCK})
-      .Test(${", ".join(TEST_ARGS)});
-  }
-}
-
-$if CBLOCK > 1:
-  TEST(${TEST_NAME}, c_div_${CBLOCK}_first_pass_plus_one) {
-    $if ISA_CHECK:
-      ${ISA_CHECK};
-    for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
+  tests.push_back(DWConvTestParams(
+      "c_eq_" + cbs + "_first_pass_plus_one",
       DWConvMicrokernelTester()
-        .first_pass_tile(${FIRST_PASS_TILE})
-        .middle_pass_tile(${MIDDLE_PASS_TILE})
-        .last_pass_tile(${LAST_PASS_TILE})
-        .channel_tile(${CR})
-        .channel_subtile(${CHANNEL_SUBTILE})
-        .channel_round(${CHANNEL_ROUND})
-        .kernel_size(${FIRST_PASS_TILE+1})
-        .channels(channels)
-        .Test(${", ".join(TEST_ARGS)});
-    }
-  }
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+          .kernel_size(first_pass_tile + 1)
+          .channels(c_block)
+      , test_func, isa_check));
 
-  TEST(${TEST_NAME}, c_div_${CBLOCK}_first_pass_and_last_pass) {
-    $if ISA_CHECK:
-      ${ISA_CHECK};
-    for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
+  tests.push_back(DWConvTestParams(
+      "c_eq_" + cbs + "_first_pass_and_last_pass",
       DWConvMicrokernelTester()
-        .first_pass_tile(${FIRST_PASS_TILE})
-        .middle_pass_tile(${MIDDLE_PASS_TILE})
-        .last_pass_tile(${LAST_PASS_TILE})
-        .channel_tile(${CR})
-        .channel_subtile(${CHANNEL_SUBTILE})
-        .channel_round(${CHANNEL_ROUND})
-        .kernel_size(${FIRST_PASS_TILE+LAST_PASS_TILE})
-        .channels(channels)
-        .Test(${", ".join(TEST_ARGS)});
-    }
-  }
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+          .kernel_size(first_pass_tile + last_pass_tile)
+          .channels(c_block)
+      , test_func, isa_check));
 
-  TEST(${TEST_NAME}, c_div_${CBLOCK}_multipass) {
-    $if ISA_CHECK:
-      ${ISA_CHECK};
-    for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
-      for (uint32_t kernel_size = ${FIRST_PASS_TILE+MIDDLE_PASS_TILE+LAST_PASS_TILE}; kernel_size < ${FIRST_PASS_TILE+MIDDLE_PASS_TILE*2+LAST_PASS_TILE}; kernel_size++) {
-        DWConvMicrokernelTester()
-          .first_pass_tile(${FIRST_PASS_TILE})
-          .middle_pass_tile(${MIDDLE_PASS_TILE})
-          .last_pass_tile(${LAST_PASS_TILE})
-          .channel_tile(${CR})
-          .channel_subtile(${CHANNEL_SUBTILE})
-          .channel_round(${CHANNEL_ROUND})
-          .kernel_size(kernel_size)
-          .channels(channels)
-          .Test(${", ".join(TEST_ARGS)});
-      }
-    }
-  }
-
-  $if ACTIVATION == "MINMAX":
-    TEST(${TEST_NAME}, c_div_${CBLOCK}_with_qmin) {
-      $if ISA_CHECK:
-        ${ISA_CHECK};
-      for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
-        DWConvMicrokernelTester()
-          .first_pass_tile(${FIRST_PASS_TILE})
-          .middle_pass_tile(${MIDDLE_PASS_TILE})
-          .last_pass_tile(${LAST_PASS_TILE})
-          .channel_tile(${CR})
-          .channel_subtile(${CHANNEL_SUBTILE})
-          .channel_round(${CHANNEL_ROUND})
-          .kernel_size(${FIRST_PASS_TILE+LAST_PASS_TILE})
-          .channels(channels)
-          .qmin(128)
-          .Test(${", ".join(TEST_ARGS)});
-      }
-    }
-
-    TEST(${TEST_NAME}, c_div_${CBLOCK}_with_qmax) {
-      $if ISA_CHECK:
-        ${ISA_CHECK};
-      for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
-        DWConvMicrokernelTester()
-          .first_pass_tile(${FIRST_PASS_TILE})
-          .middle_pass_tile(${MIDDLE_PASS_TILE})
-          .last_pass_tile(${LAST_PASS_TILE})
-          .channel_tile(${CR})
-          .channel_subtile(${CHANNEL_SUBTILE})
-          .channel_round(${CHANNEL_ROUND})
-          .kernel_size(${FIRST_PASS_TILE+LAST_PASS_TILE})
-          .channels(channels)
-          .qmax(128)
-          .Test(${", ".join(TEST_ARGS)});
-      }
-    }
-
-TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}_first_pass_plus_one) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (uint32_t channels = ${ADJCBLOCK + 1}; channels < ${10 if CBLOCK == 1 else ADJCBLOCK + CBLOCK}; channels++) {
-    DWConvMicrokernelTester()
-      .first_pass_tile(${FIRST_PASS_TILE})
-      .middle_pass_tile(${MIDDLE_PASS_TILE})
-      .last_pass_tile(${LAST_PASS_TILE})
-      .channel_tile(${CR})
-      .channel_subtile(${CHANNEL_SUBTILE})
-      .channel_round(${CHANNEL_ROUND})
-      .kernel_size(${FIRST_PASS_TILE+1})
-      .channels(channels)
-      .Test(${", ".join(TEST_ARGS)});
-  }
-}
-
-TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}_first_pass_and_last_pass) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (uint32_t channels = ${ADJCBLOCK + 1}; channels < ${10 if CBLOCK == 1 else ADJCBLOCK + CBLOCK}; channels++) {
-    DWConvMicrokernelTester()
-      .first_pass_tile(${FIRST_PASS_TILE})
-      .middle_pass_tile(${MIDDLE_PASS_TILE})
-      .last_pass_tile(${LAST_PASS_TILE})
-      .channel_tile(${CR})
-      .channel_subtile(${CHANNEL_SUBTILE})
-      .channel_round(${CHANNEL_ROUND})
-      .kernel_size(${FIRST_PASS_TILE+LAST_PASS_TILE})
-      .channels(channels)
-      .Test(${", ".join(TEST_ARGS)});
-  }
-}
-
-TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}_multipass) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (uint32_t channels = ${ADJCBLOCK + 1}; channels < ${10 if CBLOCK == 1 else ADJCBLOCK + CBLOCK}; channels++) {
-    for (uint32_t kernel_size = ${FIRST_PASS_TILE+MIDDLE_PASS_TILE+LAST_PASS_TILE}; kernel_size < ${FIRST_PASS_TILE+MIDDLE_PASS_TILE*2+LAST_PASS_TILE}; kernel_size++) {
+  tests.push_back(DWConvTestParams(
+      "c_eq_" + cbs + "_multipass",
       DWConvMicrokernelTester()
-        .first_pass_tile(${FIRST_PASS_TILE})
-        .middle_pass_tile(${MIDDLE_PASS_TILE})
-        .last_pass_tile(${LAST_PASS_TILE})
-        .channel_tile(${CR})
-        .channel_subtile(${CHANNEL_SUBTILE})
-        .channel_round(${CHANNEL_ROUND})
-        .kernel_size(kernel_size)
-        .channels(channels)
-        .Test(${", ".join(TEST_ARGS)});
-    }
-  }
-}
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+          .channels(c_block)
+      , test_func, isa_check)
+      .loop_kernel_size(
+          first_pass_tile + middle_pass_tile + last_pass_tile,
+          first_pass_tile + middle_pass_tile * 2 + last_pass_tile));
 
-TEST(${TEST_NAME}, c_eq_${CBLOCK}_first_pass_plus_one_multipixel) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
-    DWConvMicrokernelTester()
-      .first_pass_tile(${FIRST_PASS_TILE})
-      .middle_pass_tile(${MIDDLE_PASS_TILE})
-      .last_pass_tile(${LAST_PASS_TILE})
-      .channel_tile(${CR})
-      .channel_subtile(${CHANNEL_SUBTILE})
-      .channel_round(${CHANNEL_ROUND})
-      .kernel_size(${FIRST_PASS_TILE+1})
-      .channels(channels)
-      .width(3)
-      .Test(${", ".join(TEST_ARGS)});
-  }
-}
-
-TEST(${TEST_NAME}, c_eq_${CBLOCK}_first_pass_and_last_pass_multipixel) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
-    DWConvMicrokernelTester()
-      .first_pass_tile(${FIRST_PASS_TILE})
-      .middle_pass_tile(${MIDDLE_PASS_TILE})
-      .last_pass_tile(${LAST_PASS_TILE})
-      .channel_tile(${CR})
-      .channel_subtile(${CHANNEL_SUBTILE})
-      .channel_round(${CHANNEL_ROUND})
-      .kernel_size(${FIRST_PASS_TILE+LAST_PASS_TILE})
-      .channels(channels)
-      .width(3)
-      .Test(${", ".join(TEST_ARGS)});
-  }
-}
-
-TEST(${TEST_NAME}, c_eq_${CBLOCK}_multipass_multipixel) {
-  for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
-    for (uint32_t kernel_size = ${FIRST_PASS_TILE+MIDDLE_PASS_TILE+LAST_PASS_TILE}; kernel_size < ${FIRST_PASS_TILE+MIDDLE_PASS_TILE*2+LAST_PASS_TILE}; kernel_size++) {
-      $if ISA_CHECK:
-        ${ISA_CHECK};
-      DWConvMicrokernelTester()
-        .first_pass_tile(${FIRST_PASS_TILE})
-        .middle_pass_tile(${MIDDLE_PASS_TILE})
-        .last_pass_tile(${LAST_PASS_TILE})
-        .channel_tile(${CR})
-        .channel_subtile(${CHANNEL_SUBTILE})
-        .channel_round(${CHANNEL_ROUND})
-        .kernel_size(kernel_size)
-        .channels(channels)
-        .width(3)
-        .Test(${", ".join(TEST_ARGS)});
-    }
-  }
-}
-
-TEST(${TEST_NAME}, multipixel_with_step) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
-    for (uint32_t kernel_size = ${FIRST_PASS_TILE+MIDDLE_PASS_TILE+LAST_PASS_TILE}; kernel_size < ${FIRST_PASS_TILE+MIDDLE_PASS_TILE*2+LAST_PASS_TILE}; kernel_size++) {
-      for (size_t step = 2; step <= ${KR}; step++) {
+  if (c_block > 1) {
+    tests.push_back(DWConvTestParams(
+        "c_div_" + cbs + "_first_pass_plus_one",
         DWConvMicrokernelTester()
-          .first_pass_tile(${FIRST_PASS_TILE})
-          .middle_pass_tile(${MIDDLE_PASS_TILE})
-          .last_pass_tile(${LAST_PASS_TILE})
-          .channel_tile(${CR})
-          .channel_subtile(${CHANNEL_SUBTILE})
-          .channel_round(${CHANNEL_ROUND})
-          .kernel_size(kernel_size)
-          .channels(channels)
+            .first_pass_tile(first_pass_tile)
+            .middle_pass_tile(middle_pass_tile)
+            .last_pass_tile(last_pass_tile)
+            .channel_tile(cr)
+            .channel_subtile(channel_subtile)
+            .channel_round(channel_round)
+            .kernel_size(first_pass_tile + 1)
+        , test_func, isa_check)
+        .loop_channels(c_block * 2, cr * 16, cr * 3));
+
+    tests.push_back(DWConvTestParams(
+        "c_div_" + cbs + "_first_pass_and_last_pass",
+        DWConvMicrokernelTester()
+            .first_pass_tile(first_pass_tile)
+            .middle_pass_tile(middle_pass_tile)
+            .last_pass_tile(last_pass_tile)
+            .channel_tile(cr)
+            .channel_subtile(channel_subtile)
+            .channel_round(channel_round)
+            .kernel_size(first_pass_tile + last_pass_tile)
+        , test_func, isa_check)
+      .loop_channels(c_block * 2, cr * 16, cr * 3));
+
+    tests.push_back(DWConvTestParams(
+        "c_div_" + cbs + "_multipass",
+        DWConvMicrokernelTester()
+            .first_pass_tile(first_pass_tile)
+            .middle_pass_tile(middle_pass_tile)
+            .last_pass_tile(last_pass_tile)
+            .channel_tile(cr)
+            .channel_subtile(channel_subtile)
+            .channel_round(channel_round)
+        , test_func, isa_check)
+        .loop_channels(c_block * 2, cr * 16, cr * 3)
+        .loop_kernel_size(
+            first_pass_tile + middle_pass_tile + last_pass_tile,
+            first_pass_tile + middle_pass_tile * 2 + last_pass_tile));
+
+    $if ACTIVATION == "MINMAX":
+      tests.push_back(DWConvTestParams(
+          "c_div_" + cbs + "_with_qmin",
+          DWConvMicrokernelTester()
+              .first_pass_tile(first_pass_tile)
+              .middle_pass_tile(middle_pass_tile)
+              .last_pass_tile(last_pass_tile)
+              .channel_tile(cr)
+              .channel_subtile(channel_subtile)
+              .channel_round(channel_round)
+              .kernel_size(first_pass_tile + last_pass_tile)
+              .qmin(128)
+          , test_func, isa_check)
+          .loop_channels(c_block * 2, cr * 16, cr * 3));
+
+      tests.push_back(DWConvTestParams(
+          "c_div_" + cbs + "_with_qmax",
+          DWConvMicrokernelTester()
+              .first_pass_tile(first_pass_tile)
+              .middle_pass_tile(middle_pass_tile)
+              .last_pass_tile(last_pass_tile)
+              .channel_tile(cr)
+              .channel_subtile(channel_subtile)
+              .channel_round(channel_round)
+              .kernel_size(first_pass_tile + last_pass_tile)
+              .qmax(128)
+          , test_func, isa_check)
+          .loop_channels(c_block * 2, cr * 16, cr * 3));
+  }
+
+  tests.push_back(DWConvTestParams(
+      "c_gt_" + cbs + "_first_pass_plus_one",
+      DWConvMicrokernelTester()
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+          .kernel_size(first_pass_tile + 1)
+      , test_func, isa_check)
+      .loop_channels(c_block + 1, c_block == 1 ? 10 : c_block * 2));
+
+  tests.push_back(DWConvTestParams(
+      "c_gt_" + cbs + "_first_pass_and_last_pass",
+      DWConvMicrokernelTester()
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+          .kernel_size(first_pass_tile + last_pass_tile)
+      , test_func, isa_check)
+      .loop_channels(c_block + 1, c_block == 1 ? 10 : c_block * 2));
+
+  tests.push_back(DWConvTestParams(
+      "c_gt_" + cbs + "_multipass",
+      DWConvMicrokernelTester()
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+      , test_func, isa_check)
+      .loop_channels(c_block + 1, c_block == 1 ? 10 : c_block * 2)
+      .loop_kernel_size(
+          first_pass_tile + middle_pass_tile + last_pass_tile,
+          first_pass_tile + middle_pass_tile * 2 + last_pass_tile));
+
+  tests.push_back(DWConvTestParams(
+      "c_eq_" + cbs + "_first_pass_plus_one_multipixel",
+      DWConvMicrokernelTester()
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+          .kernel_size(first_pass_tile + 1)
           .width(3)
-          .step(step)
-          .Test(${", ".join(TEST_ARGS)});
-      }
-    }
-  }
-}
+      , test_func, isa_check)
+      .loop_channels(1, c_block * 5 + 1, std::max(size_t(1), c_block - 1)));
 
-TEST(${TEST_NAME}, multipixel_with_output_stride) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
-    for (uint32_t kernel_size = ${FIRST_PASS_TILE+MIDDLE_PASS_TILE+LAST_PASS_TILE}; kernel_size < ${FIRST_PASS_TILE+MIDDLE_PASS_TILE*2+LAST_PASS_TILE}; kernel_size++) {
+  tests.push_back(DWConvTestParams(
+      "c_eq_" + cbs + "_first_pass_and_last_pass_multipixel",
       DWConvMicrokernelTester()
-        .first_pass_tile(${FIRST_PASS_TILE})
-        .middle_pass_tile(${MIDDLE_PASS_TILE})
-        .last_pass_tile(${LAST_PASS_TILE})
-        .channel_tile(${CR})
-        .channel_subtile(${CHANNEL_SUBTILE})
-        .channel_round(${CHANNEL_ROUND})
-        .kernel_size(kernel_size)
-        .channels(channels)
-        .width(5)
-        .output_stride(${next_prime(CR * 5 + 1)})
-        .Test(${", ".join(TEST_ARGS)});
-    }
-  }
-}
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+          .kernel_size(first_pass_tile + last_pass_tile)
+          .width(3)
+      , test_func, isa_check)
+      .loop_channels(1, c_block * 5 + 1, std::max(size_t(1), c_block - 1)));
 
-TEST(${TEST_NAME}, input_offset) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
-    for (uint32_t kernel_size = ${FIRST_PASS_TILE+MIDDLE_PASS_TILE+LAST_PASS_TILE}; kernel_size < ${FIRST_PASS_TILE+MIDDLE_PASS_TILE*2+LAST_PASS_TILE}; kernel_size++) {
+  tests.push_back(DWConvTestParams(
+      "c_eq_" + cbs + "_multipass_multipixel",
       DWConvMicrokernelTester()
-        .first_pass_tile(${FIRST_PASS_TILE})
-        .middle_pass_tile(${MIDDLE_PASS_TILE})
-        .last_pass_tile(${LAST_PASS_TILE})
-        .channel_tile(${CR})
-        .channel_subtile(${CHANNEL_SUBTILE})
-        .channel_round(${CHANNEL_ROUND})
-        .kernel_size(kernel_size)
-        .channels(channels)
-        .input_offset(${next_prime(CR + 1) * 16})
-        .Test(${", ".join(TEST_ARGS)});
-    }
-  }
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+          .width(3)
+      , test_func, isa_check)
+      .loop_channels(1, c_block * 5 + 1, std::max(size_t(1), c_block - 1))
+      .loop_kernel_size(
+          first_pass_tile + middle_pass_tile + last_pass_tile,
+          first_pass_tile + middle_pass_tile * 2 + last_pass_tile));
+
+  tests.push_back(DWConvTestParams(
+      "multipixel_with_step",
+      DWConvMicrokernelTester()
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+          .width(3)
+      , test_func, isa_check)
+      .loop_channels(1, c_block * 5 + 1, std::max(size_t(1), c_block - 1))
+      .loop_kernel_size(
+          first_pass_tile + middle_pass_tile + last_pass_tile,
+          first_pass_tile + middle_pass_tile * 2 + last_pass_tile)
+      .loop_step(2, kr + 1));
+
+  tests.push_back(DWConvTestParams(
+      "multipixel_with_output_stride",
+      DWConvMicrokernelTester()
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+          .width(5)
+          .output_stride(xnnpack::NextPrime(cr * 5 + 1))
+      , test_func, isa_check)
+      .loop_channels(1, c_block * 5 + 1, std::max(size_t(1), c_block - 1))
+      .loop_kernel_size(first_pass_tile + middle_pass_tile + last_pass_tile,
+                        first_pass_tile + middle_pass_tile * 2 + last_pass_tile));
+
+  tests.push_back(DWConvTestParams(
+      "input_offset",
+      DWConvMicrokernelTester()
+          .first_pass_tile(first_pass_tile)
+          .middle_pass_tile(middle_pass_tile)
+          .last_pass_tile(last_pass_tile)
+          .channel_tile(cr)
+          .channel_subtile(channel_subtile)
+          .channel_round(channel_round)
+          .input_offset(xnnpack::NextPrime(cr + 1) * 16)
+      , test_func, isa_check)
+      .loop_channels(c_block * 2, cr * 16, cr * 3)
+      .loop_kernel_size(first_pass_tile + middle_pass_tile + last_pass_tile,
+                        first_pass_tile + middle_pass_tile * 2 + last_pass_tile));
+
+  return tests;
 }
 """
 
-
-def generate_test_cases(ukernel, first_pass_tile, middle_pass_tile, last_pass_tile, cr, c_block,
-                        channel_subtile, channel_round, init_fn, requantization, is_pipelined, isa):
-  """Generates all tests cases for a DWCONV micro-kernel.
-
-  Args:
-    ukernel: C name of the micro-kernel function.
-    cr: CR parameter of the DWCONV micro-kernel.
-    channel_subtile: channel_subtile parameter of the DWCONV micro-kernel.
-    channel_round: channel_round parameter of the DWCONV micro-kernel.
-    kr: KR parameter of the DWCONV micro-kernel.
-    k_block: Number of C values processed per one iteration of the main loop of
-             the micro-kernel.
-    init_fn: C name of the function to initialize microkernel parameters.
-    requantization: name of the requantization scheme used by the microkernel.
-    is_pipelined: Indicates if the micro-kernel is implemented with software
-                  pipelining. Additional test cases are generated for software
-                  pipelined micro-kernels to separately test prologue + epiloque
-                  of the pipelined loop and iteration of the pipelined loop.
-    isa: instruction set required to run the micro-kernel. Generated unit test
-         will skip execution if the host processor doesn't support this ISA.
-
-  Returns:
-    Code for the test case.
-  """
-  kr = first_pass_tile
-  _, test_name = ukernel.split("_", 1)
-  _, datatype, ukernel_type, activation, _ = ukernel.split("_", 4)
-  if activation == "ukernel":
-    activation = "linear"
-  test_args = [ukernel]
-  if init_fn:
-    test_args.append(init_fn)
-    if requantization:
-      requantization_datatype = {"qc8": "qs8"}.get(datatype, datatype)
-      test_args.append("xnn_%s_requantize_%s" %
-        (requantization_datatype, requantization))
-  return xngen.preprocess(DWCONV_TEST_CODE, {
-      "TEST_NAME": test_name.upper().replace("UKERNEL_", ""),
-      "TEST_ARGS": test_args,
-      "UKERNEL_TYPE": ukernel_type.upper(),
-      "DATATYPE": datatype,
-      "ACTIVATION": activation.upper(),
-      "FIRST_PASS_TILE": first_pass_tile,
-      "MIDDLE_PASS_TILE": middle_pass_tile,
-      "LAST_PASS_TILE": last_pass_tile,
-      "CR": cr,
-      "CHANNEL_SUBTILE": channel_subtile,
-      "CHANNEL_ROUND": channel_round,
-      "KR": kr,
-      "CBLOCK": c_block,
-      "ADJCBLOCK": 2 * c_block if is_pipelined else c_block,
-      "IS_PIPELINED": is_pipelined,
-      "ISA_CHECK": xnncommon.generate_isa_check_macro(isa),
-      "next_prime": next_prime,
-      "sqrt": math.sqrt,
-    })
-
+TEST_TEMPLATE = """\
+#define XNN_DWCONV_MULTIPASS(arch_flags, ukernel, first_pass_tile, middle_pass_tile, last_pass_tile, channel_tile, channel_subtile, channel_round, datatype, weights_type, buffer_type, params_type, init_params)
+INSTANTIATE_TEST_SUITE_P(
+    ukernel, DWConvTest,
+    testing::ValuesIn(CreateTests(
+        channel_tile, channel_tile, first_pass_tile,
+        first_pass_tile, middle_pass_tile, last_pass_tile,
+        channel_subtile, channel_round,
+        [](DWConvMicrokernelTester& tester) {
+          TEST_REQUIRES_ARCH_FLAGS(arch_flags);
+          tester.Test(${", ".join(TEST_ARGS)});
+        })),
+    [](const testing::TestParamInfo<DWConvTest::ParamType>& info) {
+      return info.param.test_name;
+    });
+"""
 
 def main(args):
   options = parser.parse_args(args)
 
-  with codecs.open(options.spec, "r", encoding="utf-8") as spec_file:
-    spec_yaml = yaml.safe_load(spec_file)
-    if not isinstance(spec_yaml, list):
-      raise ValueError("expected a list of micro-kernels in the spec")
+  ukernel = options.ukernel
 
-    tests = """\
+  test_header = """\
 // Copyright 2022 Google LLC
 //
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 //
 // Auto-generated file. Do not edit!
-//   Specification: {specification}
+//   Microkernel: {ukernel}
 //   Generator: {generator}
 
 
+#include <algorithm>
+#include <cstddef>
+#include <functional>
+#include <string>
+#include <vector>
+
 #include <gtest/gtest.h>
-
-#include <xnnpack/common.h>
-#include <xnnpack/isa-checks.h>
-
-#include <xnnpack/dwconv.h>
+#include "xnnpack/common.h"
+#include "xnnpack/dwconv.h"
+#include "xnnpack/isa-checks.h"
+#include "xnnpack/microparams-init.h"
+#include "xnnpack/requantization.h"
 #include "dwconv-microkernel-tester.h"
-""".format(specification=options.spec, generator=sys.argv[0])
+#include "next_prime.h"
+""".format(ukernel=ukernel, generator=sys.argv[0])
 
-    for ukernel_spec in spec_yaml:
-      name = ukernel_spec["name"]
-      init_fn = ukernel_spec.get("init")
-      pipelined = bool(ukernel_spec.get("pipelined", False))
-      first_pass_tile, middle_pass_tile, last_pass_tile, cr, channel_subtile, channel_round, requantization, arch, isa, assembly = split_ukernel_name(name)
+  test_cases = ""
 
-      test_case = generate_test_cases(
-        name, first_pass_tile, middle_pass_tile, last_pass_tile, cr, cr, channel_subtile, channel_round, init_fn, requantization, pipelined, isa)
-      tests += "\n\n" + xnncommon.postprocess_test_case(test_case, arch, isa, assembly)
+  parts = ukernel.split("-")
+  datatype = parts[0]
+  folder = datatype + "-dwconv"
+  if parts[1] == "qc8w":
+    folder = datatype + "-qc8w-dwconv"
+    parts.pop(1)
+  activation = "minmax" if "minmax" in parts else "linear"
+  ukernel_type = "unipass" if "unipass" in parts else "multipass"
+  requantization = "fp32" if "fp32" in parts else "rndnu" if "rndnu" in parts else None
 
-    xnncommon.overwrite_if_changed(options.output, tests)
+  create_tests_args = {
+      "UKERNEL_TYPE": ukernel_type.upper(),
+      "DATATYPE": datatype,
+      "ACTIVATION": activation.upper(),
+  }
+  create_tests = xngen.preprocess(DWCONV_CREATE_TESTS_CODE, create_tests_args)
+
+  create_tests = (
+      "namespace {\n\n"
+      + "\n".join([create_tests])
+      + "\n}  // namespace\n"
+  )
+  tests = test_header + "\n" + create_tests + "\n" + test_cases
+
+  test_args = ["ukernel", "init_params"]
+  if requantization:
+    requantization_datatype = {"qc8": "qs8"}.get(datatype, datatype)
+    test_args.append(
+        "xnn_%s_requantize_%s" % (requantization_datatype, requantization)
+    )
+
+  tests += xnncommon.make_multiline_macro(xngen.preprocess(
+      TEST_TEMPLATE,
+      {
+          "TEST_ARGS": test_args,
+      },
+  ))
+
+  tests += f'#include "{xnncommon.xnnpack_src()}{folder}/{options.ukernel}.h"\n'
+  tests += "#undef XNN_UKERNEL_WITH_PARAMS\n"
+
+  xnncommon.overwrite_if_changed(options.output, tests)
 
 
 if __name__ == "__main__":

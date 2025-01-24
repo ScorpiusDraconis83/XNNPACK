@@ -9,11 +9,9 @@
 
 
 #include <gtest/gtest.h>
-
-#include <xnnpack/common.h>
-#include <xnnpack/isa-checks.h>
-
-#include <xnnpack/lut.h>
+#include "xnnpack/common.h"
+#include "xnnpack/isa-checks.h"
+#include "xnnpack/lut.h"
 #include "lut-microkernel-tester.h"
 
 
@@ -854,7 +852,7 @@ TEST(X8_LUT__SCALAR_U16, inplace) {
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
 
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+#if XNN_ENABLE_AVX512SKX && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
   TEST(X8_LUT__AVX512SKX_VPSHUFB_U64, batch_eq_64) {
     TEST_REQUIRES_X86_AVX512SKX;
     LUTMicrokernelTester()
@@ -898,10 +896,10 @@ TEST(X8_LUT__SCALAR_U16, inplace) {
         .Test(xnn_x8_lut_ukernel__avx512skx_vpshufb_u64);
     }
   }
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+#endif  // XNN_ENABLE_AVX512SKX && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
 
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+#if XNN_ENABLE_AVX512SKX && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
   TEST(X8_LUT__AVX512SKX_VPSHUFB_U128, batch_eq_128) {
     TEST_REQUIRES_X86_AVX512SKX;
     LUTMicrokernelTester()
@@ -945,10 +943,10 @@ TEST(X8_LUT__SCALAR_U16, inplace) {
         .Test(xnn_x8_lut_ukernel__avx512skx_vpshufb_u128);
     }
   }
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+#endif  // XNN_ENABLE_AVX512SKX && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
 
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+#if XNN_ENABLE_AVX512SKX && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
   TEST(X8_LUT__AVX512SKX_VPSHUFB_U192, batch_eq_192) {
     TEST_REQUIRES_X86_AVX512SKX;
     LUTMicrokernelTester()
@@ -992,10 +990,10 @@ TEST(X8_LUT__SCALAR_U16, inplace) {
         .Test(xnn_x8_lut_ukernel__avx512skx_vpshufb_u192);
     }
   }
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+#endif  // XNN_ENABLE_AVX512SKX && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
 
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+#if XNN_ENABLE_AVX512SKX && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
   TEST(X8_LUT__AVX512SKX_VPSHUFB_U256, batch_eq_256) {
     TEST_REQUIRES_X86_AVX512SKX;
     LUTMicrokernelTester()
@@ -1039,10 +1037,10 @@ TEST(X8_LUT__SCALAR_U16, inplace) {
         .Test(xnn_x8_lut_ukernel__avx512skx_vpshufb_u256);
     }
   }
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+#endif  // XNN_ENABLE_AVX512SKX && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
 
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+#if XNN_ENABLE_AVX512VBMI && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
   TEST(X8_LUT__AVX512VBMI_VPERMX2B_U64, batch_eq_64) {
     TEST_REQUIRES_X86_AVX512VBMI;
     LUTMicrokernelTester()
@@ -1086,10 +1084,10 @@ TEST(X8_LUT__SCALAR_U16, inplace) {
         .Test(xnn_x8_lut_ukernel__avx512vbmi_vpermx2b_u64);
     }
   }
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+#endif  // XNN_ENABLE_AVX512VBMI && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
 
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+#if XNN_ENABLE_AVX512VBMI && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
   TEST(X8_LUT__AVX512VBMI_VPERMX2B_U128, batch_eq_128) {
     TEST_REQUIRES_X86_AVX512VBMI;
     LUTMicrokernelTester()
@@ -1133,10 +1131,10 @@ TEST(X8_LUT__SCALAR_U16, inplace) {
         .Test(xnn_x8_lut_ukernel__avx512vbmi_vpermx2b_u128);
     }
   }
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+#endif  // XNN_ENABLE_AVX512VBMI && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
 
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+#if XNN_ENABLE_AVX512VBMI && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
   TEST(X8_LUT__AVX512VBMI_VPERMX2B_U192, batch_eq_192) {
     TEST_REQUIRES_X86_AVX512VBMI;
     LUTMicrokernelTester()
@@ -1180,10 +1178,10 @@ TEST(X8_LUT__SCALAR_U16, inplace) {
         .Test(xnn_x8_lut_ukernel__avx512vbmi_vpermx2b_u192);
     }
   }
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+#endif  // XNN_ENABLE_AVX512VBMI && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
 
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+#if XNN_ENABLE_AVX512VBMI && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
   TEST(X8_LUT__AVX512VBMI_VPERMX2B_U256, batch_eq_256) {
     TEST_REQUIRES_X86_AVX512VBMI;
     LUTMicrokernelTester()
@@ -1227,7 +1225,7 @@ TEST(X8_LUT__SCALAR_U16, inplace) {
         .Test(xnn_x8_lut_ukernel__avx512vbmi_vpermx2b_u256);
     }
   }
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+#endif  // XNN_ENABLE_AVX512VBMI && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
 
 #if XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD

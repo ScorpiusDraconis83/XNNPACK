@@ -4,13 +4,13 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 
 #include <gtest/gtest.h>
-
-#include <xnnpack/params.h>
-
+#include "xnnpack.h"
+#include "xnnpack/config.h"
 #include "argmax-pooling-operator-tester.h"
-
 
 static uint32_t FindMaxSinglePassPoolingSize(const xnn_argmaxpool_config* ukernel) {
   uint32_t first_pass_tile_size = 0;

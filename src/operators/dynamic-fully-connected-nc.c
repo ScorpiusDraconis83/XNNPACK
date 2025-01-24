@@ -4,25 +4,27 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <assert.h>
-#include <stdbool.h>
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#include <math.h>
 
-#include <fp16/fp16.h>
-
-#include <xnnpack.h>
-#include <xnnpack/allocator.h>
-#include <xnnpack/common.h>
-#include <xnnpack/log.h>
-#include <xnnpack/math.h>
-#include <xnnpack/microfnptr.h>
-#include <xnnpack/operator.h>
-#include <xnnpack/operator-utils.h>
-#include <xnnpack/pack.h>
-#include <xnnpack/params.h>
-
+#include "xnnpack.h"
+#include "xnnpack/allocator.h"
+#include "xnnpack/common.h"
+#include "xnnpack/compute.h"
+#include "xnnpack/config-types.h"
+#include "xnnpack/config.h"
+#include "xnnpack/log.h"
+#include "xnnpack/math.h"
+#include "xnnpack/microfnptr.h"
+#include "xnnpack/microkernel-type.h"
+#include "xnnpack/microkernel-utils.h"
+#include "xnnpack/microparams.h"
+#include "xnnpack/operator-type.h"
+#include "xnnpack/operator.h"
+#include "xnnpack/params.h"
+#include "pthreadpool.h"
 
 static enum xnn_status create_dynamic_fully_connected_nc(
     uint32_t flags,
@@ -130,10 +132,10 @@ enum xnn_status xnn_create_dynamic_fully_connected_nc_f16(
     return xnn_status_invalid_parameter;
   }
 
-  const uint16_t fp16_output_min = fp16_ieee_from_fp32_value(output_min);
-  const uint16_t fp16_output_max = fp16_ieee_from_fp32_value(output_max);
-  const float rounded_output_min = fp16_ieee_to_fp32_value(fp16_output_min);
-  const float rounded_output_max = fp16_ieee_to_fp32_value(fp16_output_max);
+  const xnn_float16 fp16_output_min = xnn_float16_from_float(output_min);
+  const xnn_float16 fp16_output_max = xnn_float16_from_float(output_max);
+  const float rounded_output_min = xnn_float16_to_float(fp16_output_min);
+  const float rounded_output_max = xnn_float16_to_float(fp16_output_max);
   if (rounded_output_min >= rounded_output_max) {
     xnn_log_error(
       "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be below upper bound",
@@ -185,9 +187,9 @@ enum xnn_status xnn_create_dynamic_fully_connected_nc_f32(
     return xnn_status_invalid_parameter;
   }
 
-  if (output_min >= output_max) {
+  if (output_min > output_max) {
     xnn_log_error(
-      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be below upper bound",
+      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be less than or equal to upper bound",
       xnn_operator_type_to_string(xnn_operator_type_dynamic_fully_connected_nc_f32), output_min, output_max);
     return xnn_status_invalid_parameter;
   }
@@ -336,7 +338,7 @@ static enum xnn_status reshape_dynamic_fully_connected_nc(
 
   if (dynamic_fully_connected_op->flags & XNN_FLAG_TRANSPOSE_WEIGHTS) {
     assert(ukernel->packw_gemm_gio != NULL);
-    dynamic_fully_connected_op->context.packw_gemm_gio = (struct packw_gemm_gio_context) {
+    dynamic_fully_connected_op->context.gemm.packw_gemm_gio = (struct packw_gemm_gio_context) {
       .kc = input_channels,
       .nr = nr,
       .kr = kr,
@@ -350,12 +352,12 @@ static enum xnn_status reshape_dynamic_fully_connected_nc(
 
     dynamic_fully_connected_op->compute[0].type = xnn_parallelization_type_1d_tile_1d;
     dynamic_fully_connected_op->compute[0].task_1d_tile_1d = (pthreadpool_task_1d_tile_1d_t) xnn_compute_packw_gemm_gio;
-    dynamic_fully_connected_op->compute[0].context_offset = offsetof(struct xnn_operator, context.packw_gemm_gio) - offsetof(struct xnn_operator, context);
+    dynamic_fully_connected_op->compute[0].context_offset = offsetof(struct xnn_operator, context.gemm.packw_gemm_gio) - offsetof(struct xnn_operator, context);
     dynamic_fully_connected_op->compute[0].range[0] = output_channels;
     dynamic_fully_connected_op->compute[0].tile[0] = nr;
   } else {
     assert(ukernel->packw_gemm_goi != NULL);
-    dynamic_fully_connected_op->context.packw_gemm_goi = (struct packw_gemm_goi_context) {
+    dynamic_fully_connected_op->context.gemm.packw_gemm_goi = (struct packw_gemm_goi_context) {
       .kc = input_channels,
       .nr = nr,
       .kr = kr,
@@ -368,57 +370,61 @@ static enum xnn_status reshape_dynamic_fully_connected_nc(
 
     dynamic_fully_connected_op->compute[0].type = xnn_parallelization_type_1d_tile_1d;
     dynamic_fully_connected_op->compute[0].task_1d_tile_1d = (pthreadpool_task_1d_tile_1d_t) xnn_compute_packw_gemm_goi;
-    dynamic_fully_connected_op->compute[0].context_offset = offsetof(struct xnn_operator, context.packw_gemm_goi) - offsetof(struct xnn_operator, context);
+    dynamic_fully_connected_op->compute[0].context_offset = offsetof(struct xnn_operator, context.gemm.packw_gemm_goi) - offsetof(struct xnn_operator, context);
     dynamic_fully_connected_op->compute[0].range[0] = output_channels;
     dynamic_fully_connected_op->compute[0].tile[0] = nr;
   }
 
-  dynamic_fully_connected_op->context.gemm = (struct gemm_context){
-    .k_scaled = input_channels << log2_input_element_size,
-    .w_stride = bias_element_size + (round_up_po2(input_channels, kr * sr) << log2_input_element_size),
-    .a_stride = input_stride << log2_input_element_size,
-    .cm_stride = output_stride << log2_output_element_size,
-    .cn_stride = nr << log2_output_element_size,
-    .log2_csize = log2_output_element_size,
-    .ukernel = gemm_ukernel,
+  dynamic_fully_connected_op->context.gemm.gemm.gemm = (struct gemm_context){
+      .k_scaled = input_channels << log2_input_element_size,
+      .w_stride = bias_element_size + (round_up_po2(input_channels, kr * sr)
+                                       << log2_input_element_size),
+      .a_stride = input_stride << log2_input_element_size,
+      .cm_stride = output_stride << log2_output_element_size,
+      .cn_stride = nr << log2_output_element_size,
+      .log2_csize = log2_output_element_size,
+      .ukernel = gemm_ukernel,
+      .mr = mr,
   };
-  memcpy(&dynamic_fully_connected_op->context.gemm.params, params, params_size);
-  dynamic_fully_connected_op->context.gemm.fused_params = &dynamic_fully_connected_op->context.gemm.params;
+  memcpy(&dynamic_fully_connected_op->context.gemm.gemm.gemm.params, params, params_size);
+  dynamic_fully_connected_op->context.gemm.gemm.gemm.fused_params = &dynamic_fully_connected_op->context.gemm.gemm.gemm.params;
   if (use_gemm_nr2) {
-    memcpy(&dynamic_fully_connected_op->context.gemm.params, params2, params2_size);
+    memcpy(&dynamic_fully_connected_op->context.gemm.gemm.gemm.params, params2, params2_size);
   }
-  dynamic_fully_connected_op->context.gemm.fused_params = &dynamic_fully_connected_op->context.gemm.params;
+  dynamic_fully_connected_op->context.gemm.gemm.gemm.fused_params = &dynamic_fully_connected_op->context.gemm.gemm.gemm.params;
 
-  #if XNN_TEST_MODE
-    const size_t nc = nr;
-  #else
-    size_t nc = output_channels;
-    const size_t num_threads = pthreadpool_get_threads_count(threadpool);
-    if (num_threads > 1) {
-      const size_t num_other_tiles = divide_round_up(batch_size, mr);
-      const size_t target_tiles_per_thread = 5;
-      const size_t max_nc = divide_round_up(output_channels * num_other_tiles, num_threads * target_tiles_per_thread);
-      if (max_nc < nc) {
-        nc = min(nc, divide_round_up(nc, max_nc * nr) * nr);
-      }
-    }
-  #endif
-  #if XNN_MAX_UARCH_TYPES > 1
-    if (xnn_is_hmp_gemm_ukernel(gemm_ukernel)) {
-      dynamic_fully_connected_op->compute[1].type = xnn_parallelization_type_2d_tile_2d_with_uarch;
-      dynamic_fully_connected_op->compute[1].task_2d_tile_2d_with_id = (pthreadpool_task_2d_tile_2d_with_id_t) xnn_compute_hmp_gemm;
-    } else {
-      dynamic_fully_connected_op->compute[1].type = xnn_parallelization_type_2d_tile_2d;
-      dynamic_fully_connected_op->compute[1].task_2d_tile_2d = (pthreadpool_task_2d_tile_2d_t) xnn_compute_gemm;
-    }
-  #else
-    dynamic_fully_connected_op->compute[1].type = xnn_parallelization_type_2d_tile_2d;
-    dynamic_fully_connected_op->compute[1].task_2d_tile_2d = (pthreadpool_task_2d_tile_2d_t) xnn_compute_gemm;
-  #endif
-  dynamic_fully_connected_op->compute[1].range[0] = batch_size;
-  dynamic_fully_connected_op->compute[1].range[1] = output_channels;
-  dynamic_fully_connected_op->compute[1].tile[0] = mr;
-  dynamic_fully_connected_op->compute[1].tile[1] = nc;
+  // Compute the optimal tile size for this GEMM.
+  const size_t nc = xnn_gemm_best_tile_size(
+      /*num_groups=*/1, /*m=*/batch_size, /*n=*/output_channels,
+      /*m_stride=*/dynamic_fully_connected_op->context.gemm.gemm.gemm.a_stride,
+      /*n_stride=*/dynamic_fully_connected_op->context.gemm.gemm.gemm.w_stride,
+      /*cm_stride=*/
+      dynamic_fully_connected_op->context.gemm.gemm.gemm.cm_stride,
+      /*cn_stride=*/1 << log2_output_element_size, mr, nr,
+      /*num_threads=*/pthreadpool_get_threads_count(threadpool));
+
+#if XNN_MAX_UARCH_TYPES > 1
+  if (xnn_is_hmp_gemm_ukernel(gemm_ukernel)) {
+    dynamic_fully_connected_op->compute[1].type =
+        xnn_parallelization_type_2d_tile_2d_with_uarch;
+    dynamic_fully_connected_op->compute[1].task_2d_tile_2d_with_id =
+        (pthreadpool_task_2d_tile_2d_with_id_t)xnn_compute_hmp_gemm;
+  } else {
+    dynamic_fully_connected_op->compute[1].type =
+        xnn_parallelization_type_2d_tile_2d;
+    dynamic_fully_connected_op->compute[1].task_2d_tile_2d =
+        (pthreadpool_task_2d_tile_2d_t)xnn_compute_gemm;
+  }
+#else
+  dynamic_fully_connected_op->compute[1].type =
+      xnn_parallelization_type_2d_tile_2d;
+  dynamic_fully_connected_op->compute[1].task_2d_tile_2d =
+      (pthreadpool_task_2d_tile_2d_t)xnn_compute_gemm;
+#endif
+  dynamic_fully_connected_op->compute[1].range[1] = batch_size;
+  dynamic_fully_connected_op->compute[1].range[0] = output_channels;
+  dynamic_fully_connected_op->compute[1].tile[1] = mr;
+  dynamic_fully_connected_op->compute[1].tile[0] = nc;
   dynamic_fully_connected_op->state = xnn_run_state_needs_setup;
 
   return xnn_status_success;
@@ -508,18 +514,18 @@ static enum xnn_status setup_dynamic_fully_connected_nc(
   }
 
   if (dynamic_fully_connected_op->flags & XNN_FLAG_TRANSPOSE_WEIGHTS) {
-    dynamic_fully_connected_op->context.packw_gemm_gio.kernel = kernel;
-    dynamic_fully_connected_op->context.packw_gemm_gio.bias = bias;
-    dynamic_fully_connected_op->context.packw_gemm_gio.packed_weights = workspace;
+    dynamic_fully_connected_op->context.gemm.packw_gemm_gio.kernel = kernel;
+    dynamic_fully_connected_op->context.gemm.packw_gemm_gio.bias = bias;
+    dynamic_fully_connected_op->context.gemm.packw_gemm_gio.packed_weights = workspace;
   } else {
-    dynamic_fully_connected_op->context.packw_gemm_goi.kernel = kernel;
-    dynamic_fully_connected_op->context.packw_gemm_goi.bias = bias;
-    dynamic_fully_connected_op->context.packw_gemm_goi.packed_weights = workspace;
+    dynamic_fully_connected_op->context.gemm.packw_gemm_goi.kernel = kernel;
+    dynamic_fully_connected_op->context.gemm.packw_gemm_goi.bias = bias;
+    dynamic_fully_connected_op->context.gemm.packw_gemm_goi.packed_weights = workspace;
   }
 
-  dynamic_fully_connected_op->context.gemm.a = input;
-  dynamic_fully_connected_op->context.gemm.packed_w = workspace;
-  dynamic_fully_connected_op->context.gemm.c = output;
+  dynamic_fully_connected_op->context.gemm.gemm.gemm.a = input;
+  dynamic_fully_connected_op->context.gemm.gemm.gemm.packed_w = workspace;
+  dynamic_fully_connected_op->context.gemm.gemm.gemm.c = output;
 
   dynamic_fully_connected_op->state = xnn_run_state_ready;
 

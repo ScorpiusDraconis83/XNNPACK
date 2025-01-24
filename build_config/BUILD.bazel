@@ -15,6 +15,13 @@ package(
 ############################# Build configurations #############################
 
 config_setting(
+    name = "linux",
+    constraint_values = [
+        "@platforms//os:linux",
+    ],
+)
+
+config_setting(
     name = "linux_arm64",
     values = {"cpu": "aarch64"},
 )
@@ -203,6 +210,13 @@ config_setting(
 )
 
 config_setting(
+    name = "ios",
+    values = {
+        "apple_platform_type": "ios",
+    },
+)
+
+config_setting(
     name = "watchos_arm64_32",
     values = {
         "apple_platform_type": "watchos",
@@ -234,6 +248,20 @@ config_setting(
     },
 )
 
+# Duummy lexan config to avoid bazel errors.
+config_setting(
+    name = "windows_lexan",
+    values = {"cpu": "x64_windows"},
+)
+
+# Dummy hexagon config to avoid bazel errors
+config_setting(
+    name = "hexagon",
+    values = {
+        "cpu": "hexagon",  # Expected to not-match anything
+    },
+)
+
 ######################## Composite build configurations #######################
 
 selects.config_setting_group(
@@ -262,6 +290,14 @@ selects.config_setting_group(
 )
 
 selects.config_setting_group(
+    name = "arm",
+    match_any = [
+        ":aarch32",
+        ":aarch64",
+    ],
+)
+
+selects.config_setting_group(
     name = "x86",
     match_any = [
         ":android_x86",
@@ -276,6 +312,21 @@ selects.config_setting_group(
         ":windows_x86_64_clang",
         ":windows_x86_64_mingw",
         ":windows_x86_64_msys",
+    ],
+)
+
+selects.config_setting_group(
+    name = "x86_64",
+    match_any = [
+        ":android_x86_64",
+        ":ios_x86_64",
+        ":linux_k8",
+        ":macos_x86_64",
+        ":macos_x86_64_legacy",
+        ":tvos_x86_64",
+        ":watchos_x86_64",
+        ":windows_x86_64_clang",
+        ":windows_x86_64_mingw",
     ],
 )
 

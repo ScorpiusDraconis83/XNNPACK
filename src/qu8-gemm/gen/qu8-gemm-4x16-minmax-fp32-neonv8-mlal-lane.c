@@ -11,9 +11,9 @@
 
 #include <arm_neon.h>
 
-#include <xnnpack/common.h>
-#include <xnnpack/gemm.h>
-#include <xnnpack/intrinsics-polyfill.h>
+#include "xnnpack/common.h"
+#include "xnnpack/gemm.h"
+#include "xnnpack/intrinsics-polyfill.h"
 
 
 void xnn_qu8_gemm_minmax_fp32_ukernel_4x16__neonv8_mlal_lane(
@@ -58,7 +58,7 @@ void xnn_qu8_gemm_minmax_fp32_ukernel_4x16__neonv8_mlal_lane(
     c3 = c2;
   }
 
-  const uint8x8_t vb_zero_point = vld1_dup_u8(&params->fp32_neonv8.kernel_zero_point[0]);
+  const uint8x8_t vb_zero_point = vld1_dup_u8(&params->fp32_neonv8.kernel_zero_point);
   do {
     int32x4_t vacc0x0123 = vld1q_s32(w); w = (const int32_t*) w + 4;
     int32x4_t vacc0x4567 = vld1q_s32(w); w = (const int32_t*) w + 4;

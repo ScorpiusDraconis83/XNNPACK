@@ -4,10 +4,10 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <array>
+#include <cstddef>
 #include <utility>
 
 #include <gtest/gtest.h>
-
 #include "slice-operator-tester.h"
 
 constexpr size_t kDim1 = 4;

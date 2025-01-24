@@ -4,21 +4,23 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <algorithm>
-#include <array>
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <functional>
 #include <limits>
-#include <memory>
 #include <numeric>
 #include <random>
-
-#include <xnnpack.h>
-#include <xnnpack/node-type.h>
-#include <xnnpack/operator.h>
-#include <xnnpack/requantization.h>
-#include <xnnpack/subgraph.h>
+#include <vector>
 
 #include <gtest/gtest.h>
+#include "xnnpack.h"
+#include "xnnpack/node-type.h"
+#include "xnnpack/operator.h"
+#include "xnnpack/requantization.h"
+#include "xnnpack/subgraph.h"
+#include "xnnpack/buffer.h"
+#include "replicable_random_device.h"
 
 template <
   typename InputType,
@@ -27,17 +29,15 @@ template <
   size_t max_dim = XNN_MAX_TENSOR_DIMS,
   bool pad_output = false>
 class UnaryTest : public ::testing::Test {
-protected:
-  UnaryTest()
-  {
-    random_device = std::make_unique<std::random_device>();
-    rng = std::mt19937((*random_device)());
+ protected:
+  UnaryTest() {
     shape_dist = std::uniform_int_distribution<size_t>(min_dim, max_dim);
     dim_dist = std::uniform_int_distribution<size_t>(1, 9);
-    i8dist =
-      std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max());
-    u8dist =
-      std::uniform_int_distribution<int32_t>(std::numeric_limits<uint8_t>::min(), std::numeric_limits<uint8_t>::max());
+    i8dist = std::uniform_int_distribution<int32_t>(
+        std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max());
+    u8dist = std::uniform_int_distribution<int32_t>(
+        std::numeric_limits<uint8_t>::min(),
+        std::numeric_limits<uint8_t>::max());
     u32dist = std::uniform_int_distribution<uint32_t>();
     scale_dist = std::uniform_real_distribution<float>(0.1f, 10.0f);
     f32dist = std::uniform_real_distribution<float>(0.01f, 1.0f);
@@ -56,10 +56,10 @@ protected:
     signed_zero_point = i8dist(rng);
     unsigned_zero_point = u8dist(rng);
 
-    input = std::vector<InputType>(num_output_elements + XNN_EXTRA_BYTES / sizeof(InputType));
+    input = xnnpack::Buffer<InputType>(num_output_elements + XNN_EXTRA_BYTES / sizeof(InputType));
     const size_t output_padding = pad_output ? (XNN_EXTRA_BYTES / sizeof(InputType)) : 0;
-    operator_output = std::vector<OutputType>(num_output_elements + output_padding);
-    subgraph_output = std::vector<OutputType>(num_output_elements + output_padding);
+    operator_output = xnnpack::Buffer<OutputType>(num_output_elements + output_padding);
+    subgraph_output = xnnpack::Buffer<OutputType>(num_output_elements + output_padding);
   }
 
   std::vector<size_t> RandomShape() {
@@ -73,8 +73,7 @@ protected:
     return std::accumulate(dims.begin(), dims.end(), size_t(1), std::multiplies<size_t>());
   }
 
-  std::unique_ptr<std::random_device> random_device;
-  std::mt19937 rng;
+  xnnpack::ReplicableRandomDevice rng;
   std::uniform_int_distribution<size_t> shape_dist;
   std::uniform_int_distribution<size_t> dim_dist;
   std::uniform_real_distribution<float> scale_dist;
@@ -95,7 +94,7 @@ protected:
   int32_t signed_zero_point;
   int32_t unsigned_zero_point;
 
-  std::vector<InputType> input;
-  std::vector<OutputType> operator_output;
-  std::vector<OutputType> subgraph_output;
+  xnnpack::Buffer<InputType> input;
+  xnnpack::Buffer<OutputType> operator_output;
+  xnnpack::Buffer<OutputType> subgraph_output;
 };
