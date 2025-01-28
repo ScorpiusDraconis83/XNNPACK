@@ -11,9 +11,9 @@
 
 #include <immintrin.h>
 
-#include <xnnpack/gemm.h>
-#include <xnnpack/intrinsics-polyfill.h>
-#include <xnnpack/math.h>
+#include "xnnpack/gemm.h"
+#include "xnnpack/intrinsics-polyfill.h"
+#include "xnnpack/math.h"
 
 void xnn_qd8_f32_qc4w_gemm_minmax_ukernel_7x16c8__avx512skx(
     size_t mr,
@@ -25,7 +25,7 @@ void xnn_qd8_f32_qc4w_gemm_minmax_ukernel_7x16c8__avx512skx(
     float* restrict c,
     size_t cm_stride,
     size_t cn_stride,
-    const union xnn_f32_qc4w_minmax_params params[restrict XNN_MIN_ELEMENTS(1)],
+    const struct xnn_f32_qc4w_minmax_params params[restrict XNN_MIN_ELEMENTS(1)],
     const struct xnn_qd8_quantization_params quantization_params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
@@ -87,7 +87,10 @@ void xnn_qd8_f32_qc4w_gemm_minmax_ukernel_7x16c8__avx512skx(
   const __m512i vinput_zero_point6 = _mm512_set1_epi32((int) quantization_params[6].zero_point);
   const __m512 voutput_min = _mm512_set1_ps(params->scalar.min);
   const __m512 voutput_max = _mm512_set1_ps(params->scalar.max);
-  const __m256i vmask = _mm256_set1_epi8(params->scalar.mask);
+  // XNN_FORCE_REALIZATION(voutput_min);
+  // XNN_FORCE_REALIZATION(voutput_max);
+  const __m256i vmask = _mm256_set1_epi8(0xF0);
+  XNN_FORCE_REALIZATION(vmask);
 
   do {
     const __m512i vksum0123 = _mm512_maskz_expandloadu_epi32(vbias_mask, w);
@@ -404,7 +407,7 @@ void xnn_qd8_f32_qc4w_gemm_minmax_ukernel_7x16c8__avx512skx(
     vscaled5x0123456789ABCDEF = _mm512_min_ps(vscaled5x0123456789ABCDEF, voutput_max);
     vscaled6x0123456789ABCDEF = _mm512_min_ps(vscaled6x0123456789ABCDEF, voutput_max);
 
-    if(nc >= 16) {
+    if XNN_LIKELY(nc >= 16) {
       _mm512_storeu_ps(c0, vscaled0x0123456789ABCDEF);
       _mm512_storeu_ps(c1, vscaled1x0123456789ABCDEF);
       _mm512_storeu_ps(c2, vscaled2x0123456789ABCDEF);

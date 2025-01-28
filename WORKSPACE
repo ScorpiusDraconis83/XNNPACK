@@ -1,3 +1,11 @@
+# Copyright 2025 Google LLC
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+#
+# Description:
+#   XNNPACK - optimized floating-point neural network operators library
+
 workspace(name = "xnnpack")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -5,9 +13,26 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # Bazel rule definitions
 http_archive(
     name = "rules_cc",
-    strip_prefix = "rules_cc-main",
-    urls = ["https://github.com/bazelbuild/rules_cc/archive/main.zip"],
+    sha256 = "3868eab488bd5be37a6acedbd222a196bea14408a2857916f33cce7b4780897d",
+    strip_prefix = "rules_cc-5e848c1434d3458018734238dbc4781f43992ea5",
+    urls = [
+        "https://github.com/bazelbuild/rules_cc/archive/5e848c1434d3458018734238dbc4781f43992ea5.zip",
+    ],
 )
+
+# Bazel Python rule definitions.
+http_archive(
+    name = "rules_python",
+    sha256 = "4912ced70dc1a2a8e4b86cec233b192ca053e82bc72d877b98e126156e8f228d",
+    strip_prefix = "rules_python-0.32.2",
+    urls = [
+        "https://github.com/bazelbuild/rules_python/releases/download/0.32.2/rules_python-0.32.2.tar.gz",
+    ],
+)
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
 
 # Bazel Skylib.
 http_archive(
@@ -19,14 +44,24 @@ http_archive(
     ],
 )
 
+# Bazel Platforms
+http_archive(
+    name = "platforms",
+    sha256 = "5308fc1d8865406a49427ba24a9ab53087f17f5266a7aabbfc28823f3916e1ca",
+    urls = ["https://github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz"],
+)
+
+# LINT.IfChange(googletest)
 # Google Test framework, used by most unit-tests.
 http_archive(
     name = "com_google_googletest",
-    sha256 = "5cb522f1427558c6df572d6d0e1bf0fd076428633d080e88ad5312be0b6a8859",
-    strip_prefix = "googletest-e23cdb78e9fef1f69a9ef917f447add5638daf2a",
-    urls = ["https://github.com/google/googletest/archive/e23cdb78e9fef1f69a9ef917f447add5638daf2a.zip"],
+    sha256 = "648b9430fca63acc68c59ee98f624dcbcd9c24ea6b278c306ab6b7f49f62034a",
+    strip_prefix = "googletest-d144031940543e15423a25ae5a8a74141044862f",
+    urls = ["https://github.com/google/googletest/archive/d144031940543e15423a25ae5a8a74141044862f.zip"],
 )
+# LINT.ThenChange(cmake/DownloadGoogleTest.cmake,MODULE.bazel:googletest)
 
+# LINT.IfChange(benchmark)
 # Google Benchmark library, used in micro-benchmarks.
 http_archive(
     name = "com_google_benchmark",
@@ -34,18 +69,9 @@ http_archive(
     strip_prefix = "benchmark-d2a8a4ee41b923876c034afb939c4fc03598e622",
     urls = ["https://github.com/google/benchmark/archive/d2a8a4ee41b923876c034afb939c4fc03598e622.zip"],
 )
+# LINT.ThenChange(cmake/DownloadGoogleBenchmark.cmake,MODULE.bazel:benchmark)
 
-# FP16 library, used for half-precision conversions
-http_archive(
-    name = "FP16",
-    build_file = "@//third_party:FP16.BUILD",
-    sha256 = "e66e65515fa09927b348d3d584c68be4215cfe664100d01c9dbc7655a5716d70",
-    strip_prefix = "FP16-0a92994d729ff76a58f692d3028ca1b64b145d91",
-    urls = [
-        "https://github.com/Maratyszcza/FP16/archive/0a92994d729ff76a58f692d3028ca1b64b145d91.zip",
-    ],
-)
-
+# LINT.IfChange(FXdiv)
 # FXdiv library, used for repeated integer division by the same factor
 http_archive(
     name = "FXdiv",
@@ -53,26 +79,41 @@ http_archive(
     strip_prefix = "FXdiv-b408327ac2a15ec3e43352421954f5b1967701d1",
     urls = ["https://github.com/Maratyszcza/FXdiv/archive/b408327ac2a15ec3e43352421954f5b1967701d1.zip"],
 )
+# LINT.ThenChange(cmake/DownloadFXdiv.cmake,MODULE.bazel:FXdiv)
 
-# LINT.IfChange
+# LINT.IfChange(pthreadpool)
 # pthreadpool library, used for parallelization
 http_archive(
     name = "pthreadpool",
-    sha256 = "a4cf06de57bfdf8d7b537c61f1c3071bce74e57524fe053e0bbd2332feca7f95",
-    strip_prefix = "pthreadpool-4fe0e1e183925bf8cfa6aae24237e724a96479b8",
-    urls = ["https://github.com/Maratyszcza/pthreadpool/archive/4fe0e1e183925bf8cfa6aae24237e724a96479b8.zip"],
+    sha256 = "9f1baba9e97df8abc792eeaa2a8f0e0d29e507db1b4c1a8210868c889eb449b5",
+    strip_prefix = "pthreadpool-39df650e19d4f6382e246c29d6819b1ce6ee0b24",
+    urls = ["https://github.com/google/pthreadpool/archive/39df650e19d4f6382e246c29d6819b1ce6ee0b24.zip"],
 )
-# LINT.ThenChange(cmake/DownloadPThreadPool.cmake)
+# LINT.ThenChange(cmake/DownloadPThreadPool.cmake,MODULE.bazel:pthreadpool)
 
+# LINT.IfChange(cpuinfo)
 # cpuinfo library, used for detecting processor characteristics
 http_archive(
     name = "cpuinfo",
-    sha256 = "a615cac78fad03952cc3e1fd231ce789a8df6e81a5957b64350cb8200364b385",
-    strip_prefix = "cpuinfo-d6860c477c99f1fce9e28eb206891af3c0e1a1d7",
+    sha256 = "4bf314b3f04db2fd984fef38a7e278e702b74297ef0af592b73296edba02b9d4",
+    strip_prefix = "cpuinfo-8a1772a0c5c447df2d18edf33ec4603a8c9c04a6",
     urls = [
-        "https://github.com/pytorch/cpuinfo/archive/d6860c477c99f1fce9e28eb206891af3c0e1a1d7.zip"
+        "https://github.com/pytorch/cpuinfo/archive/8a1772a0c5c447df2d18edf33ec4603a8c9c04a6.zip",
     ],
 )
+# LINT.ThenChange(cmake/DownloadCpuinfo.cmake,MODULE.bazel:cpuinfo)
+
+# LINT.IfChange(kleidiai)
+# KleidiAI library, used for ARM microkernels.
+http_archive(
+    name = "KleidiAI",
+    sha256 = "8857da33291f42e305efcdb2895a787cb4998a7ee1c1d754ef33db74de45cc94",
+    strip_prefix = "kleidiai-d15722976120710080ca098fe8ddabf4556cb40f",
+    urls = [
+        "https://gitlab.arm.com/kleidi/kleidiai/-/archive/d15722976120710080ca098fe8ddabf4556cb40f/kleidiai-d15722976120710080ca098fe8ddabf4556cb40f.zip",
+    ],
+)
+# LINT.ThenChange(cmake/DownloadKleidiAI.cmake,MODULE.bazel:kleidiai)
 
 # Ruy library, used to benchmark against
 http_archive(
@@ -82,10 +123,3 @@ http_archive(
     urls = [
         "https://github.com/google/ruy/archive/9f53ba413e6fc879236dcaa3e008915973d67a4f.zip",
     ],
-)
-
-# Android NDK location and version is auto-detected from $ANDROID_NDK_HOME environment variable
-android_ndk_repository(name = "androidndk")
-
-# Android SDK location and API is auto-detected from $ANDROID_HOME environment variable
-android_sdk_repository(name = "androidsdk")

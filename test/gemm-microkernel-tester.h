@@ -10,427 +10,323 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <vector>
+#include <cstdlib>
+#include <functional>
+#include <iostream>
+#include <ostream>
+#include <string>
 
-#include <xnnpack/microfnptr.h>
-#include <xnnpack/pack.h>
-#include <xnnpack/post-operation.h>
-#include <xnnpack/requantization.h>
-
+#include <gtest/gtest.h>
+#include "xnnpack/math.h"
+#include "xnnpack/microfnptr.h"
+#include "xnnpack/pack.h"
+#include "xnnpack/requantization.h"
+#include "next_prime.h"
 
 class GemmMicrokernelTester {
  public:
-  inline GemmMicrokernelTester& mr(size_t mr) {
+  GemmMicrokernelTester clone() const { return *this; }
+
+  GemmMicrokernelTester& mr(size_t mr) {
     this->mr_ = mr;
     return *this;
   }
 
-  inline size_t mr() const {
-    return this->mr_;
-  }
+  size_t mr() const { return this->mr_; }
 
-  inline GemmMicrokernelTester& nr(size_t nr) {
+  GemmMicrokernelTester& nr(size_t nr) {
     this->nr_ = nr;
     return *this;
   }
 
-  inline size_t nr() const {
-    return this->nr_;
-  }
+  size_t nr() const { return this->nr_; }
 
-
-  inline GemmMicrokernelTester& kr(size_t kr) {
+  GemmMicrokernelTester& kr(size_t kr) {
     this->kr_ = kr;
     return *this;
   }
 
-  inline size_t kr() const {
-    return this->kr_;
-  }
+  size_t kr() const { return this->kr_; }
 
-  inline GemmMicrokernelTester& sr(size_t sr) {
+  GemmMicrokernelTester& sr(size_t sr) {
     this->sr_ = sr;
     return *this;
   }
 
-  inline size_t sr() const {
-    return this->sr_;
-  }
+  size_t sr() const { return this->sr_; }
 
-  inline GemmMicrokernelTester& m(size_t m) {
+  GemmMicrokernelTester& m(size_t m) {
     this->m_ = m;
     return *this;
   }
 
-  inline size_t m() const {
-    return this->m_;
-  }
+  size_t m() const { return this->m_; }
 
-  inline GemmMicrokernelTester& n(size_t n) {
+  GemmMicrokernelTester& n(size_t n) {
     this->n_ = n;
     return *this;
   }
 
-  inline size_t n() const {
-    return this->n_;
-  }
+  size_t n() const { return this->n_; }
 
-  inline GemmMicrokernelTester& k(size_t k) {
+  GemmMicrokernelTester& k(size_t k) {
     this->k_ = k;
     return *this;
   }
 
-  inline size_t k() const {
-    return this->k_;
-  }
+  size_t k() const { return this->k_; }
 
-  inline GemmMicrokernelTester& ks(size_t ks) {
+  GemmMicrokernelTester& ks(size_t ks) {
     this->ks_ = ks;
     return *this;
   }
 
-  inline size_t ks() const {
-    return this->ks_;
+  size_t ks() const { return this->ks_; }
+
+  inline GemmMicrokernelTester& bl(size_t bl) {
+    this->bl_ = bl;
+    return *this;
   }
 
-  inline size_t packed_k() const {
-    return round_up_po2(k(), kr() * sr());
+  inline size_t bl() const { return this->bl_; }
+
+  size_t packed_k() const { return round_up_po2(k(), kr() * sr()); }
+
+  size_t packed_n() const { return round_up(n(), nr()); }
+
+  bool unsigned_inputs() const { return this->unsigned_inputs_; }
+
+  GemmMicrokernelTester& unsigned_inputs(bool unsigned_inputs) {
+    this->unsigned_inputs_ = unsigned_inputs;
+    return *this;
   }
 
-  inline size_t packed_n() const {
-    return round_up(n(), nr());
+  uint8_t planes() const { return this->planes_; }
+
+  GemmMicrokernelTester& planes(uint8_t planes) {
+    this->planes_ = planes;
+    return *this;
   }
 
-  inline GemmMicrokernelTester& a_stride(size_t a_stride) {
+  GemmMicrokernelTester& a_stride(size_t a_stride) {
     this->a_stride_ = a_stride;
     return *this;
   }
 
-  inline size_t a_stride() const {
+  size_t a_stride() const {
     return this->a_stride_ == 0 ? k() : this->a_stride_;
   }
 
-  inline GemmMicrokernelTester& cm_stride(size_t cm_stride) {
+  GemmMicrokernelTester& cm_stride(size_t cm_stride) {
     this->cm_stride_ = cm_stride;
     return *this;
   }
 
-  inline size_t cm_stride() const {
-    return this->cm_stride_ == 0 ? cn_stride() * ((n() - 1) / nr()) + (n() - 1) % nr() + 1 : this->cm_stride_;
+  size_t cm_stride() const {
+    return this->cm_stride_ == 0
+               ? nr() * ((n() - 1) / nr()) + (n() - 1) % nr() + 1
+               : this->cm_stride_;
   }
 
-  inline GemmMicrokernelTester& cn_stride(size_t cn_stride) {
-    this->cn_stride_ = cn_stride;
-    return *this;
-  }
-
-  inline size_t cn_stride() const {
-    return this->cn_stride_ == 0 ? nr() : this->cn_stride_;
-  }
-
-  inline GemmMicrokernelTester& a_zero_point(uint8_t a_zero_point) {
+  GemmMicrokernelTester& a_zero_point(uint8_t a_zero_point) {
     this->a_zero_point_ = a_zero_point;
     return *this;
   }
 
-  inline uint8_t a_zero_point() const {
-    return this->a_zero_point_;
-  }
+  uint8_t a_zero_point() const { return this->a_zero_point_; }
 
-  inline GemmMicrokernelTester& b_zero_point(uint8_t b_zero_point) {
+  GemmMicrokernelTester& b_zero_point(uint8_t b_zero_point) {
     this->b_zero_point_ = b_zero_point;
     return *this;
   }
 
-  inline uint8_t b_zero_point() const {
-    return this->b_zero_point_;
-  }
+  uint8_t b_zero_point() const { return this->b_zero_point_; }
 
-  inline GemmMicrokernelTester& qmin(uint8_t qmin) {
+  GemmMicrokernelTester& qmin(uint8_t qmin) {
     this->qmin_ = qmin;
     return *this;
   }
 
-  inline uint8_t qmin() const {
-    return this->qmin_;
-  }
+  uint8_t qmin() const { return this->qmin_; }
 
-  inline GemmMicrokernelTester& qmax(uint8_t qmax) {
+  GemmMicrokernelTester& qmax(uint8_t qmax) {
     this->qmax_ = qmax;
     return *this;
   }
 
-  inline uint8_t qmax() const {
-    return this->qmax_;
-  }
+  uint8_t qmax() const { return this->qmax_; }
 
-  inline GemmMicrokernelTester& a_offset(size_t a_offset) {
+  GemmMicrokernelTester& a_offset(size_t a_offset) {
     this->a_offset_ = a_offset;
     return *this;
   }
 
-  inline size_t a_offset() const {
-    return this->a_offset_;
-  }
+  size_t a_offset() const { return this->a_offset_; }
 
-  inline GemmMicrokernelTester& zero_index(size_t zero_index) {
+  GemmMicrokernelTester& zero_index(size_t zero_index) {
     this->zero_index_ = zero_index;
     return *this;
   }
 
-  inline size_t zero_index() const {
-    return this->zero_index_;
-  }
-
-  inline GemmMicrokernelTester& extended_weights(bool extended_weights) {
-    this->extended_weights_ = extended_weights;
-    return *this;
-  }
-
-  inline bool extended_weights() const {
-    return this->extended_weights_;
-  }
-
-  inline GemmMicrokernelTester& iterations(size_t iterations) {
-    this->iterations_ = iterations;
-    return *this;
-  }
-
-  inline size_t iterations() const {
-    return this->iterations_;
-  }
+  size_t zero_index() const { return this->zero_index_; }
 
   GemmMicrokernelTester& known_nc_mod_nr(bool known_nc_mod_nr) {
     this->known_nc_mod_nr_ = known_nc_mod_nr;
     return *this;
   }
 
-  bool known_nc_mod_nr() const {
-    return known_nc_mod_nr_;
-  }
+  bool known_nc_mod_nr() const { return known_nc_mod_nr_; }
 
   GemmMicrokernelTester& relu(bool relu) {
     this->relu_ = relu;
     return *this;
   }
 
-  bool relu() const {
-    return relu_;
+  bool relu() const { return relu_; }
+
+  GemmMicrokernelTester& mr_packed(size_t mr_packed) {
+    this->mr_packed_ = mr_packed;
+    return *this;
   }
 
-  size_t nc_mod_nr() const {
-    return known_nc_mod_nr() ? n() % nr() : SIZE_MAX;
+  size_t mr_packed() const {
+    if (this->mr_packed_ == 0) {
+      return this->mr_;
+    }
+    return this->mr_packed_;
   }
 
-  void Test(
-    xnn_qd8_f16_qc8w_igemm_ukernel_fn igemm,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_qs8_igemm_fn pack) const;
+  size_t nc_mod_nr() const { return known_nc_mod_nr() ? n() % nr() : SIZE_MAX; }
 
-  void Test(
-    xnn_qd8_f32_qc8w_igemm_ukernel_fn gemm,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_qs8_igemm_fn pack) const;
+  void Test(xnn_qd8_f16_qc8w_igemm_ukernel_fn igemm,
+            xnn_init_f16_minmax_params_fn init_params,
+            xnn_pack_qs8_igemm_fn pack) const;
 
-  void Test(
-    xnn_qu8_gemm_minmax_ukernel_fn gemm,
-    xnn_init_qu8_conv_minmax_params_fn init_params,
-    xnn_pack_qu8_gemm_fn pack,
-    xnn_qu8_requantize_fn requantize) const;
+  void Test(xnn_qd8_f32_qc8w_igemm_ukernel_fn gemm,
+            xnn_init_f32_minmax_params_fn init_params,
+            xnn_pack_qs8_igemm_fn pack) const;
 
-  void Test(
-    xnn_qu8_igemm_minmax_ukernel_fn igemm,
-    xnn_init_qu8_conv_minmax_params_fn init_params,
-    xnn_pack_qu8_igemm_fn pack,
-    xnn_qu8_requantize_fn requantize);
+  void Test(xnn_qu8_gemm_minmax_ukernel_fn gemm,
+            xnn_init_qu8_conv_minmax_params_fn init_params,
+            xnn_pack_qu8_gemm_fn pack, xnn_qu8_requantize_fn requantize) const;
 
-  void Test(
-    xnn_qs8_qc8w_gemm_minmax_ukernel_fn gemm,
-    xnn_init_qs8_qc8w_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_gemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
+  void Test(xnn_qu8_igemm_minmax_ukernel_fn igemm,
+            xnn_init_qu8_conv_minmax_params_fn init_params,
+            xnn_pack_qu8_igemm_fn pack, xnn_qu8_requantize_fn requantize);
 
-  void Test(
-    xnn_qs8_qc8w_igemm_minmax_ukernel_fn igemm,
-    xnn_init_qs8_qc8w_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_igemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
+  void Test(xnn_qs8_qc8w_gemm_minmax_ukernel_fn gemm,
+            xnn_init_qs8_qc8w_conv_minmax_params_fn init_params,
+            xnn_pack_qs8_gemm_fn pack, xnn_qs8_requantize_fn requantize) const;
 
-  void Test(
-    xnn_qs8_gemm_minmax_ukernel_fn gemm,
-    xnn_init_qs8_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_gemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
+  void Test(xnn_qs8_qc8w_igemm_minmax_ukernel_fn igemm,
+            xnn_init_qs8_qc8w_conv_minmax_params_fn init_params,
+            xnn_pack_qs8_igemm_fn pack, xnn_qs8_requantize_fn requantize) const;
 
-  void Test(
-    xnn_qd8_f16_qc8w_gemm_ukernel_fn gemm,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_qs8_gemm_fn pack) const;
+  void Test(xnn_qs8_gemm_minmax_ukernel_fn gemm,
+            xnn_init_qs8_conv_minmax_params_fn init_params,
+            xnn_pack_qs8_gemm_fn pack, xnn_qs8_requantize_fn requantize) const;
 
-  void Test(
-    xnn_qd8_f32_qc8w_gemm_ukernel_fn gemm,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_qs8_gemm_fn pack) const;
+  void Test(xnn_qd8_f16_qc8w_gemm_ukernel_fn gemm,
+            xnn_init_f16_minmax_params_fn init_params,
+            xnn_pack_qs8_gemm_fn pack) const;
 
-  void Test(
-    xnn_qd8_f16_qc4w_gemm_ukernel_fn gemm,
-    xnn_init_f16_qc4w_minmax_params_fn init_params,
-    xnn_pack_qs8_qc4w_gemm_fn pack) const;
+  void Test(xnn_qd8_f32_qc8w_gemm_ukernel_fn gemm,
+            xnn_init_f32_minmax_params_fn init_params,
+            xnn_pack_qs8_gemm_fn pack) const;
 
-  void Test(
-    xnn_qd8_f32_qc4w_gemm_ukernel_fn gemm,
-    xnn_init_f32_qc4w_minmax_params_fn init_params,
-    xnn_pack_qs8_qc4w_gemm_fn pack) const;
+  void Test(xnn_qd8_f16_qc4w_gemm_ukernel_fn gemm,
+            xnn_init_f16_qc4w_minmax_params_fn init_params,
+            xnn_pack_qs8_qc4w_gemm_fn pack) const;
 
-  void Test(
-    xnn_qs8_igemm_minmax_ukernel_fn igemm,
-    xnn_init_qs8_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_igemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
+  void Test(xnn_qd8_f16_qb4w_gemm_ukernel_fn gemm,
+            xnn_init_f16_qb4w_minmax_params_fn init_params,
+            xnn_pack_qs8_qb4w_gemm_fn pack) const;
 
-  void Test(
-    xnn_bf16_gemm_minmax_ukernel_fn gemm_minmax,
-    xnn_init_bf16_minmax_params_fn init_params,
-    xnn_pack_f16_gemm_fn pack) const;
+  void Test(xnn_qd8_f32_qc4w_gemm_ukernel_fn gemm,
+            xnn_init_f32_qc4w_minmax_params_fn init_params,
+            xnn_pack_qs8_qc4w_gemm_fn pack) const;
 
-  void Test(
-    xnn_f16_gemm_minmax_ukernel_fn gemm_minmax,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_f16_gemm_fn pack) const;
+  void Test(xnn_qd8_f32_qb4w_gemm_ukernel_fn gemm,
+            xnn_init_f32_qb4w_minmax_params_fn init_params,
+            xnn_pack_qs8_qb4w_gemm_fn pack) const;
 
-  void Test(
-    xnn_f16_igemm_minmax_ukernel_fn igemm_minmax,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_f16_igemm_fn pack) const;
+  void Test(xnn_qs8_igemm_minmax_ukernel_fn igemm,
+            xnn_init_qs8_conv_minmax_params_fn init_params,
+            xnn_pack_qs8_igemm_fn pack, xnn_qs8_requantize_fn requantize) const;
 
-  void Test(
-    xnn_f32_ppmm_minmax_ukernel_fn ppmm_minmax,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_gemm_fn pack) const;
+  void Test(xnn_bf16_f32_gemm_minmax_ukernel_fn gemm_minmax,
+            xnn_init_bf16_minmax_params_fn init_params,
+            xnn_pack_bf16_f32_gemm_fn pack) const;
 
-  void Test(
-    xnn_f32_gemm_ukernel_fn gemm,
-    xnn_pack_f32_gemm_fn pack) const;
+  void Test(xnn_bf16_gemm_minmax_ukernel_fn gemm_minmax,
+            xnn_init_bf16_minmax_params_fn init_params,
+            xnn_pack_f16_gemm_fn pack) const;
 
-  void Test(
-    xnn_f32_gemm_relu_ukernel_fn gemm_relu,
-    xnn_pack_f32_gemm_fn pack) const;
+  void Test(xnn_f16_gemm_minmax_ukernel_fn gemm_minmax,
+            xnn_init_f16_minmax_params_fn init_params,
+            xnn_pack_f16_gemm_fn pack) const;
 
-  void Test(
-    xnn_f32_gemm_minmax_ukernel_fn gemm_minmax,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_gemm_fn pack) const;
+  void Test(xnn_f16_igemm_minmax_ukernel_fn igemm_minmax,
+            xnn_init_f16_minmax_params_fn init_params,
+            xnn_pack_f16_igemm_fn pack) const;
 
-  void Test(
-    xnn_f32_gemm_goi_minmax_ukernel_fn gemm_minmax,
-    xnn_init_f32_minmax_params_fn init_params) const;
+  void Test(xnn_f32_ppmm_minmax_ukernel_fn ppmm_minmax,
+            xnn_init_f32_minmax_params_fn init_params,
+            xnn_pack_f32_gemm_fn pack) const;
 
-  void Test(
-    xnn_f32_qc4w_gemm_minmax_ukernel_fn gemm_minmax,
-    xnn_init_f32_qc4w_minmax_params_fn init_params,
-    xnn_pack_f32_qc4w_gemm_fn pack) const;
+  void Test(xnn_f32_gemm_ukernel_fn gemm, xnn_pack_f32_gemm_fn pack) const;
 
-  void Test(
-      xnn_f32_qc8w_gemm_ukernel_fn gemm,
-      xnn_pack_f32_qs8w_gemm_fn pack) const;
+  void Test(xnn_f32_gemm_relu_ukernel_fn gemm_relu,
+            xnn_pack_f32_gemm_fn pack) const;
 
-  void Test(
-      xnn_f32_qc8w_gemm_relu_ukernel_fn gemm_relu,
-      xnn_pack_f32_qs8w_gemm_fn pack) const;
+  void Test(xnn_f32_gemm_minmax_ukernel_fn gemm_minmax,
+            xnn_init_f32_minmax_params_fn init_params,
+            xnn_pack_f32_gemm_fn pack) const;
 
-  void Test(
-    xnn_f32_qc8w_gemm_minmax_ukernel_fn gemm_minmax,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_qs8w_gemm_fn pack) const;
+  void Test(xnn_f32_gemm_goi_minmax_ukernel_fn gemm_minmax,
+            xnn_init_f32_minmax_params_fn init_params) const;
 
-  void Test(
-    xnn_f32_gemminc_minmax_ukernel_fn gemminc,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_gemminc_fn pack) const;
+  void Test(xnn_f32_qc4w_gemm_minmax_ukernel_fn gemm_minmax,
+            xnn_init_f32_qc4w_minmax_params_fn init_params,
+            xnn_pack_f32_qc4w_gemm_fn pack) const;
 
-  void Test(
-      xnn_f32_igemm_ukernel_fn igemm,
-      xnn_pack_f32_igemm_fn pack) const;
+  void Test(xnn_f32_qc8w_gemm_ukernel_fn gemm,
+            xnn_pack_f32_qs8w_gemm_fn pack) const;
 
-  void Test(
-      xnn_f32_igemm_relu_ukernel_fn igemm_relu,
-      xnn_pack_f32_igemm_fn pack) const;
+  void Test(xnn_f32_qc8w_gemm_relu_ukernel_fn gemm_relu,
+            xnn_pack_f32_qs8w_gemm_fn pack) const;
 
-  void Test(
-    xnn_f32_igemm_minmax_ukernel_fn igemm_minmax,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_igemm_fn pack) const;
+  void Test(xnn_f32_qc8w_gemm_minmax_ukernel_fn gemm_minmax,
+            xnn_init_f32_minmax_params_fn init_params,
+            xnn_pack_f32_qs8w_gemm_fn pack) const;
 
-#if XNN_PLATFORM_JIT
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_f16_gemm_fn pack) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_f16_igemm_fn pack) const;
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_gemm_fn pack) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_igemm_fn pack) const;
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_qs8_qc8w_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_gemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_qs8_qc8w_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_igemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_qs8_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_gemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_qs8_conv_minmax_params_fn init_params,
-    xnn_pack_qs8_igemm_fn pack,
-    xnn_qs8_requantize_fn requantize) const;
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_gemm_fn pack,
-    const std::vector<xnn_post_operation>& fused_operators) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn gemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_igemm_fn pack,
-    const std::vector<xnn_post_operation>& fused_operators) const;
+  void Test(xnn_f32_gemminc_minmax_ukernel_fn gemminc,
+            xnn_init_f32_minmax_params_fn init_params,
+            xnn_pack_f32_gemminc_fn pack) const;
 
-  // Test that JIT generated code matches assembly.
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_f16_gemm_fn pack,
-    xnn_f16_gemm_minmax_ukernel_fn gemm_minmax) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_f16_minmax_params_fn init_params,
-    xnn_pack_f16_igemm_fn pack,
-    xnn_f16_igemm_minmax_ukernel_fn igemm_minmax) const;
-  void Test(
-    xnn_jit_gemm_code_generator_fn gemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_gemm_fn pack,
-    xnn_f32_gemm_minmax_ukernel_fn gemm_minmax) const;
-  void Test(
-    xnn_jit_igemm_code_generator_fn igemm_generator,
-    xnn_init_f32_minmax_params_fn init_params,
-    xnn_pack_f32_igemm_fn pack,
-    xnn_f32_igemm_minmax_ukernel_fn igemm_minmax) const;
-#endif  // XNN_PLATFORM_JIT
+  void Test(xnn_f32_igemm_ukernel_fn igemm, xnn_pack_f32_igemm_fn pack) const;
+
+  void Test(xnn_f32_igemm_relu_ukernel_fn igemm_relu,
+            xnn_pack_f32_igemm_fn pack) const;
+
+  void Test(xnn_f32_igemm_minmax_ukernel_fn igemm_minmax,
+            xnn_init_f32_minmax_params_fn init_params,
+            xnn_pack_f32_igemm_fn pack) const;
+
+  void Test(xnn_qp8_f32_qc4w_gemm_minmax_ukernel_fn gemm,
+            xnn_init_f32_minmax_params_fn init_minmax_params,
+            xnn_pack_weights_and_biases_fn pack,
+            xnn_packed_stride_weights_and_biases_fn packed_stride);
+
+  void Test_QP8F32QC8W(xnn_qp8_f32_qc8w_gemm_minmax_ukernel_fn gemm,
+                       xnn_init_f32_minmax_params_fn init_minmax_params,
+                       xnn_pack_weights_and_biases_fn pack,
+                       xnn_packed_stride_weights_and_biases_fn packed_stride);
+
+  void Test(xnn_qp8_f32_qb4w_gemm_minmax_ukernel_fn gemm,
+            xnn_init_f32_qb4w_minmax_params_fn init_minmax_params,
+            xnn_pack_weights_and_biases_fn pack,
+            xnn_packed_stride_weights_and_biases_fn packed_stride);
 
  private:
   size_t mr_{1};
@@ -441,17 +337,100 @@ class GemmMicrokernelTester {
   size_t n_{1};
   size_t k_{1};
   size_t ks_{1};
+  size_t bl_{SIZE_MAX};
+  bool unsigned_inputs_{false};
+  uint8_t planes_{1};
   size_t a_stride_{0};
   size_t cm_stride_{0};
-  size_t cn_stride_{0};
   uint8_t a_zero_point_{127};
   uint8_t b_zero_point_{127};
   uint8_t qmin_{0};
   uint8_t qmax_{255};
   size_t a_offset_{0};
   size_t zero_index_{SIZE_MAX};
-  bool extended_weights_{false};
-  size_t iterations_{15};
   bool known_nc_mod_nr_{true};
   bool relu_{false};
+  size_t mr_packed_{0};
 };
+
+enum class LoopStepType { Linear, NextPrime };
+
+struct LoopParams {
+  LoopParams() = default;
+  explicit LoopParams(size_t from, size_t to, size_t step,
+                      LoopStepType step_type)
+      : is_set(true), from(from), to(to), step(step), step_type(step_type) {}
+  bool is_set = false;
+  size_t from = 1;
+  size_t to = 1;
+  size_t step = 1;
+  LoopStepType step_type = LoopStepType::Linear;
+
+  size_t next(size_t n) const {
+    switch (step_type) {
+      case LoopStepType::Linear:
+        return n + step;
+      case LoopStepType::NextPrime:
+        return xnnpack::NextPrime(n + step);
+      default:
+        std::cerr << "Unknown loop step type " << static_cast<int>(step_type)
+                  << std::endl;
+        std::abort();
+    }
+  }
+};
+
+struct GemmTestParams {
+  GemmTestParams(std::string test_name, GemmMicrokernelTester tester,
+                 std::function<void(GemmMicrokernelTester& tester)> test_func,
+                 std::function<void(void)> isa_check = nullptr)
+      : test_name(test_name),
+        tester(tester),
+        test_func(test_func),
+        isa_check(isa_check) {}
+
+  // Setters for the loops over `k`, `m`, and `n`.
+  GemmTestParams& loop_k(size_t from, size_t to, size_t step = 1,
+                         LoopStepType step_type = LoopStepType::NextPrime) {
+    loop_k_ = LoopParams(from, to, step, step_type);
+    return *this;
+  }
+  GemmTestParams& loop_m(size_t from, size_t to, size_t step = 1,
+                         LoopStepType step_type = LoopStepType::Linear) {
+    loop_m_ = LoopParams(from, to, step, step_type);
+    return *this;
+  }
+  GemmTestParams& loop_n(size_t from, size_t to, size_t step = 1,
+                         LoopStepType step_type = LoopStepType::NextPrime) {
+    loop_n_ = LoopParams(from, to, step, step_type);
+    return *this;
+  }
+  GemmTestParams& loop_zi(size_t from, size_t to, size_t step = 1,
+                          LoopStepType step_type = LoopStepType::Linear) {
+    loop_zi_ = LoopParams(from, to, step, step_type);
+    return *this;
+  }
+  GemmTestParams& loop_bzp(size_t from, size_t to, size_t step = 1,
+                           LoopStepType step_type = LoopStepType::Linear) {
+    loop_bzp_ = LoopParams(from, to, step, step_type);
+    return *this;
+  }
+  GemmTestParams& loop_bl(size_t from, size_t to, size_t step = 1,
+                          LoopStepType step_type = LoopStepType::Linear) {
+    loop_bl_ = LoopParams(from, to, step, step_type);
+    return *this;
+  }
+
+  std::string test_name;
+  GemmMicrokernelTester tester;
+  std::function<void(GemmMicrokernelTester& tester)> test_func;
+  std::function<void(void)> isa_check;
+  LoopParams loop_k_;
+  LoopParams loop_m_;
+  LoopParams loop_n_;
+  LoopParams loop_zi_;
+  LoopParams loop_bzp_;
+  LoopParams loop_bl_;
+};
+
+using GemmTest = testing::TestWithParam<GemmTestParams>;

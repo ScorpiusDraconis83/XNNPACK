@@ -11,10 +11,10 @@
 
 #include <immintrin.h>
 
-#include <xnnpack/gemm.h>
-#include <xnnpack/intrinsics-polyfill.h>
-#include <xnnpack/math.h>
-#include <xnnpack/prefetch.h>
+#include "xnnpack/gemm.h"
+#include "xnnpack/intrinsics-polyfill.h"
+#include "xnnpack/math.h"
+#include "xnnpack/prefetch.h"
 
 void xnn_qd8_f32_qc8w_gemm_minmax_ukernel_1x16c8__avx512skx_prfm(
     size_t mr,
@@ -46,6 +46,8 @@ void xnn_qd8_f32_qc8w_gemm_minmax_ukernel_1x16c8__avx512skx_prfm(
   const __m512i vinput_zero_point0 = _mm512_set1_epi32((int) quantization_params[0].zero_point);
   const __m512 voutput_min = _mm512_set1_ps(params->scalar.min);
   const __m512 voutput_max = _mm512_set1_ps(params->scalar.max);
+  // XNN_FORCE_REALIZATION(voutput_min);
+  // XNN_FORCE_REALIZATION(voutput_max);
 
   do {
     const __m512i vksum0123 = _mm512_maskz_expandloadu_epi32(vbias_mask, w);
@@ -107,7 +109,7 @@ void xnn_qd8_f32_qc8w_gemm_minmax_ukernel_1x16c8__avx512skx_prfm(
 
     vscaled0x0123456789ABCDEF = _mm512_min_ps(vscaled0x0123456789ABCDEF, voutput_max);
 
-    if(nc >= 16) {
+    if XNN_LIKELY(nc >= 16) {
       _mm512_storeu_ps(c0, vscaled0x0123456789ABCDEF);
 
       a0 = (const int8_t*) ((uintptr_t) a0 - kc);

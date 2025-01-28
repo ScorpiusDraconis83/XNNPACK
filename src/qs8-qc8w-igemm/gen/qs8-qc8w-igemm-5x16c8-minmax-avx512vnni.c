@@ -11,10 +11,11 @@
 
 #include <immintrin.h>
 
-#include <xnnpack/gemm.h>
-#include <xnnpack/intrinsics-polyfill.h>
-#include <xnnpack/math.h>
-#include <xnnpack/unaligned.h>
+#include "xnnpack/common.h"
+#include "xnnpack/gemm.h"
+#include "xnnpack/intrinsics-polyfill.h"
+#include "xnnpack/math.h"
+#include "xnnpack/unaligned.h"
 
 
 void xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_5x16c8__avx512vnni(
@@ -59,10 +60,14 @@ void xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_5x16c8__avx512vnni(
     c4 = c3;
   }
 
-  const __m512i vsign_mask = _mm512_set1_epi8(params->fp32_avx512vnni.sign_mask);  // 0x80
-  const __m512 voutput_max_less_zero_point = _mm512_set1_ps(params->fp32_avx512vnni.output_max_less_zero_point);
-  const __m512i voutput_zero_point = _mm512_set1_epi32(params->fp32_avx512vnni.output_zero_point);
-  const __m128i voutput_min = _mm_load_si128((const __m128i*) params->fp32_avx512vnni.output_min);
+  const __m512i vsign_mask = _mm512_set1_epi8(0x80);
+  XNN_FORCE_REALIZATION(vsign_mask);
+  const __m512 voutput_max_less_zero_point = _mm512_set1_ps((int32_t) params->fp32_scalar.output_max - (int32_t) params->fp32_scalar.output_zero_point);
+  const __m512i voutput_zero_point = _mm512_set1_epi32(params->fp32_scalar.output_zero_point);
+  const __m128i voutput_min = _mm_set1_epi8(params->fp32_scalar.output_min);
+  // XNN_FORCE_REALIZATION(voutput_max_less_zero_point);
+  // XNN_FORCE_REALIZATION(voutput_zero_point);
+  XNN_FORCE_REALIZATION(voutput_min);
   do {
     __m512i vacc0x01234567 = _mm512_cvtepu32_epi64(_mm256_load_si256((const __m256i*) w));
     __m512i vacc0x89ABCDEF = _mm512_cvtepu32_epi64(_mm256_load_si256((const __m256i*) ((const int32_t*) w + 8)));
@@ -184,20 +189,20 @@ void xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_5x16c8__avx512vnni(
 
     // Add adjacent pairs
     const __m512i vidx = _mm512_set_epi32(30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2, 0);
-    const __m512i vsum0x01234567 = _mm512_add_epi32(vacc0x01234567, _mm512_srai_epi64(vacc0x01234567, 32));
-    const __m512i vsum0x89ABCDEF = _mm512_add_epi32(vacc0x89ABCDEF, _mm512_srai_epi64(vacc0x89ABCDEF, 32));
+    const __m512i vsum0x01234567 = _mm512_add_epi32(vacc0x01234567, _mm512_srli_epi64(vacc0x01234567, 32));
+    const __m512i vsum0x89ABCDEF = _mm512_add_epi32(vacc0x89ABCDEF, _mm512_srli_epi64(vacc0x89ABCDEF, 32));
     __m512i vacc0x0123456789ABCDEF = _mm512_permutex2var_epi32(vsum0x01234567, vidx, vsum0x89ABCDEF);
-    const __m512i vsum1x01234567 = _mm512_add_epi32(vacc1x01234567, _mm512_srai_epi64(vacc1x01234567, 32));
-    const __m512i vsum1x89ABCDEF = _mm512_add_epi32(vacc1x89ABCDEF, _mm512_srai_epi64(vacc1x89ABCDEF, 32));
+    const __m512i vsum1x01234567 = _mm512_add_epi32(vacc1x01234567, _mm512_srli_epi64(vacc1x01234567, 32));
+    const __m512i vsum1x89ABCDEF = _mm512_add_epi32(vacc1x89ABCDEF, _mm512_srli_epi64(vacc1x89ABCDEF, 32));
     __m512i vacc1x0123456789ABCDEF = _mm512_permutex2var_epi32(vsum1x01234567, vidx, vsum1x89ABCDEF);
-    const __m512i vsum2x01234567 = _mm512_add_epi32(vacc2x01234567, _mm512_srai_epi64(vacc2x01234567, 32));
-    const __m512i vsum2x89ABCDEF = _mm512_add_epi32(vacc2x89ABCDEF, _mm512_srai_epi64(vacc2x89ABCDEF, 32));
+    const __m512i vsum2x01234567 = _mm512_add_epi32(vacc2x01234567, _mm512_srli_epi64(vacc2x01234567, 32));
+    const __m512i vsum2x89ABCDEF = _mm512_add_epi32(vacc2x89ABCDEF, _mm512_srli_epi64(vacc2x89ABCDEF, 32));
     __m512i vacc2x0123456789ABCDEF = _mm512_permutex2var_epi32(vsum2x01234567, vidx, vsum2x89ABCDEF);
-    const __m512i vsum3x01234567 = _mm512_add_epi32(vacc3x01234567, _mm512_srai_epi64(vacc3x01234567, 32));
-    const __m512i vsum3x89ABCDEF = _mm512_add_epi32(vacc3x89ABCDEF, _mm512_srai_epi64(vacc3x89ABCDEF, 32));
+    const __m512i vsum3x01234567 = _mm512_add_epi32(vacc3x01234567, _mm512_srli_epi64(vacc3x01234567, 32));
+    const __m512i vsum3x89ABCDEF = _mm512_add_epi32(vacc3x89ABCDEF, _mm512_srli_epi64(vacc3x89ABCDEF, 32));
     __m512i vacc3x0123456789ABCDEF = _mm512_permutex2var_epi32(vsum3x01234567, vidx, vsum3x89ABCDEF);
-    const __m512i vsum4x01234567 = _mm512_add_epi32(vacc4x01234567, _mm512_srai_epi64(vacc4x01234567, 32));
-    const __m512i vsum4x89ABCDEF = _mm512_add_epi32(vacc4x89ABCDEF, _mm512_srai_epi64(vacc4x89ABCDEF, 32));
+    const __m512i vsum4x01234567 = _mm512_add_epi32(vacc4x01234567, _mm512_srli_epi64(vacc4x01234567, 32));
+    const __m512i vsum4x89ABCDEF = _mm512_add_epi32(vacc4x89ABCDEF, _mm512_srli_epi64(vacc4x89ABCDEF, 32));
     __m512i vacc4x0123456789ABCDEF = _mm512_permutex2var_epi32(vsum4x01234567, vidx, vsum4x89ABCDEF);
 
     __m512 vscaled0x0123456789ABCDEF = _mm512_cvtepi32_ps(vacc0x0123456789ABCDEF);

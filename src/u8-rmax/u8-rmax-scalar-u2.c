@@ -4,8 +4,10 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
 
-#include <xnnpack/reduce.h>
+#include "xnnpack/reduce.h"
 
 
 void xnn_u8_rmax_ukernel__scalar_u2(

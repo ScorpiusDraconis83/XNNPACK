@@ -13,8 +13,8 @@
 
 #include <wasm_simd128.h>
 
-#include <xnnpack/dwconv.h>
-#include <xnnpack/math.h>
+#include "xnnpack/dwconv.h"
+#include "xnnpack/math.h"
 
 
 void xnn_f32_dwconv_ukernel_5f5m5l4c4s4r__wasmrelaxedsimd_fma(
@@ -29,7 +29,7 @@ void xnn_f32_dwconv_ukernel_5f5m5l4c4s4r__wasmrelaxedsimd_fma(
     const float* zero,
     size_t kernel_size,
     float* buffer,
-    const union xnn_f32_default_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const struct xnn_f32_default_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(channels != 0);
   assert(output_width != 0);
