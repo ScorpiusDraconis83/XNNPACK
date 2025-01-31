@@ -4,29 +4,30 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <assert.h>
+#include <inttypes.h>
 #include <math.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <fp16/fp16.h>
-
-#include <xnnpack.h>
-#include <xnnpack/allocator.h>
-#include <xnnpack/common.h>
-#include <xnnpack/compute.h>
-#include <xnnpack/config.h>
-#include <xnnpack/indirection.h>
-#include <xnnpack/log.h>
-#include <xnnpack/math.h>
-#include <xnnpack/operator.h>
-#include <xnnpack/operator-utils.h>
-#include <xnnpack/operator-type.h>
-#include <xnnpack/pack.h>
-#include <xnnpack/microparams-init.h>
-#include <xnnpack/params.h>
+#include "xnnpack.h"
+#include "xnnpack/allocator.h"
+#include "xnnpack/cache.h"
+#include "xnnpack/common.h"
+#include "xnnpack/compute.h"
+#include "xnnpack/config-types.h"
+#include "xnnpack/config.h"
+#include "xnnpack/log.h"
+#include "xnnpack/math.h"
+#include "xnnpack/microfnptr.h"
+#include "xnnpack/microkernel-type.h"
+#include "xnnpack/operator-type.h"
+#include "xnnpack/operator-utils.h"
+#include "xnnpack/operator.h"
+#include "xnnpack/pack.h"
+#include "xnnpack/params.h"
+#include "pthreadpool.h"
 
 static enum xnn_status create_spmm_path(
     const uint32_t kernel_height,
@@ -191,8 +192,12 @@ static enum xnn_status create_conv2d_hwc2chw_path(
     kernel, bias, weights_ptr, NULL);
 
   if (use_weights_cache(convolution_op)) {
-    convolution_op->packed_weights.offset = xnn_get_or_insert_weights_cache(
-        convolution_op->weights_cache, weights_ptr, aligned_total_weights_size);
+    struct xnn_weights_cache_look_up_key cache_key;
+    cache_key.seed = group_input_channels ^ group_output_channels ^ output_channel_tile;
+    cache_key.kernel = kernel;
+    cache_key.bias = bias;
+    convolution_op->packed_weights.offset = xnn_look_up_or_insert_weights_cache(
+        convolution_op->weights_cache, &cache_key, weights_ptr, aligned_total_weights_size);
   }
 
   convolution_op->ukernel.conv2d = (struct xnn_ukernel_conv2d) {
@@ -213,7 +218,6 @@ static enum xnn_status create_dwconv_path(
     const uint32_t log2_filter_element_size,
     const xnn_pack_chw_dwconv_hwg_w_fn pack_chw_dwconv_hwg_w,
     const xnn_pack_chw_dwconv_ghw_w_fn pack_chw_dwconv_ghw_w,
-    const xnn_update_chw_params_fn update_chw_params,
     const size_t output_width_tile,
     const xnn_dwconv2d_chw_ukernel_fn dwconv_ukernel,
     const enum xnn_operator_type operator_type,
@@ -233,24 +237,29 @@ static enum xnn_status create_dwconv_path(
   xnn_log_debug("allocated %zu bytes for packed weights in %s operator",
                 aligned_total_weights_size, xnn_operator_type_to_string(operator_type));
 
+  uint32_t cache_seed = kernel_height ^ kernel_width ^ groups;
   if (flags & XNN_FLAG_DEPTHWISE_CONVOLUTION) {
     pack_chw_dwconv_hwg_w(
       kernel_height * kernel_width, groups,
       kernel, bias, weights_ptr, NULL);
   } else {
+    cache_seed = ~cache_seed;
     pack_chw_dwconv_ghw_w(
       kernel_height * kernel_width, groups,
       kernel, bias, weights_ptr, NULL);
   }
 
   if (use_weights_cache(convolution_op)) {
-    convolution_op->packed_weights.offset = xnn_get_or_insert_weights_cache(
-        convolution_op->weights_cache, weights_ptr, aligned_total_weights_size);
+    struct xnn_weights_cache_look_up_key cache_key;
+    cache_key.seed = cache_seed;
+    cache_key.kernel = kernel;
+    cache_key.bias = bias;
+    convolution_op->packed_weights.offset = xnn_look_up_or_insert_weights_cache(
+        convolution_op->weights_cache, &cache_key, weights_ptr, aligned_total_weights_size);
   }
 
   convolution_op->ukernel.dwconv2d = (struct xnn_ukernel_dwconv2d) {
     .chw_fn = dwconv_ukernel,
-    .update_params = (xnn_update_chw_params_fn) update_chw_params,
     .output_width_tile = output_width_tile,
   };
 
@@ -372,10 +381,10 @@ enum xnn_status xnn_create_convolution2d_nchw_f16(
     goto error;
   }
 
-  const uint16_t fp16_output_min = fp16_ieee_from_fp32_value(output_min);
-  const uint16_t fp16_output_max = fp16_ieee_from_fp32_value(output_max);
-  const float rounded_output_min = fp16_ieee_to_fp32_value(fp16_output_min);
-  const float rounded_output_max = fp16_ieee_to_fp32_value(fp16_output_max);
+  const xnn_float16 fp16_output_min = xnn_float16_from_float(output_min);
+  const xnn_float16 fp16_output_max = xnn_float16_from_float(output_max);
+  const float rounded_output_min = xnn_float16_to_float(fp16_output_min);
+  const float rounded_output_max = xnn_float16_to_float(fp16_output_max);
   if (rounded_output_min >= rounded_output_max) {
     xnn_log_error(
       "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be below upper bound",
@@ -549,14 +558,13 @@ enum xnn_status xnn_create_convolution2d_nchw_f16(
         pack_chw_dwconv_ghw_w = (xnn_pack_chw_dwconv_ghw_w_fn) xnn_pack_f32_to_f16_chw_dwconv_ghw_w;
       }
 
-      dwconv2d_parameters->init.f16(&convolution_op->params.f16_chw, 0, fp16_output_min, fp16_output_max);
+      dwconv2d_parameters->init.f16(&convolution_op->params.f16_chw, fp16_output_min, fp16_output_max);
 
       status = create_dwconv_path(
           kernel_height, kernel_width, groups,
           kernel, bias, flags, log2_filter_element_size,
           pack_chw_dwconv_hwg_w,
           pack_chw_dwconv_ghw_w,
-          (xnn_update_chw_params_fn) dwconv2d_parameters->update.f16,
           dwconv2d_parameters->output_width_tile,
           dwconv2d_parameters->ukernel,
           operator_type, convolution_op);
@@ -714,9 +722,9 @@ enum xnn_status xnn_create_convolution2d_nchw_f32(
     goto error;
   }
 
-  if (output_min >= output_max) {
+  if (output_min > output_max) {
     xnn_log_error(
-      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be below upper bound",
+      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be less than or equal to upper bound",
       xnn_operator_type_to_string(operator_type), output_min, output_max);
     goto error;
   }
@@ -882,14 +890,13 @@ enum xnn_status xnn_create_convolution2d_nchw_f32(
     }
     case xnn_microkernel_type_dwconv:
     {
-      dwconv2d_parameters->init.f32(&convolution_op->params.f32_chw, 0, output_min, output_max);
+      dwconv2d_parameters->init.f32(&convolution_op->params.f32_chw, output_min, output_max);
 
       status = create_dwconv_path(
           kernel_height, kernel_width, groups,
           kernel, bias, flags, log2_filter_element_size,
           (xnn_pack_chw_dwconv_hwg_w_fn) xnn_pack_f32_chw_dwconv_hwg_w,
           (xnn_pack_chw_dwconv_ghw_w_fn) xnn_pack_f32_chw_dwconv_ghw_w,
-          (xnn_update_chw_params_fn) dwconv2d_parameters->update.f32,
           dwconv2d_parameters->output_width_tile,
           dwconv2d_parameters->ukernel,
           operator_type, convolution_op);
@@ -930,6 +937,54 @@ enum xnn_status xnn_create_convolution2d_nchw_f32(
 
 error:
   xnn_delete_operator(convolution_op);
+  return status;
+}
+
+enum xnn_status xnn_create_convolution2d_nchw_f32_f16(
+    uint32_t input_padding_top, uint32_t input_padding_right,
+    uint32_t input_padding_bottom, uint32_t input_padding_left,
+    uint32_t kernel_height, uint32_t kernel_width, uint32_t subsampling_height,
+    uint32_t subsampling_width, uint32_t dilation_height,
+    uint32_t dilation_width, uint32_t groups, size_t group_input_channels,
+    size_t group_output_channels, size_t input_channel_stride,
+    size_t output_channel_stride, const void* kernel, const void* bias,
+    float output_min, float output_max, uint32_t flags,
+    xnn_code_cache_t code_cache, xnn_weights_cache_t weights_cache,
+    xnn_operator_t* convolution_op_out) {
+  // Convert the `f16` kernel and bias to `f32` in temporary buffers.
+  const size_t num_kernel_entries = groups * group_input_channels *
+                                    group_output_channels * kernel_width *
+                                    kernel_height;
+  float* fp32_kernel_buffer =
+      (float*)xnn_allocate_memory(num_kernel_entries * sizeof(float));
+  float* fp32_bias_buffer = NULL;
+  const xnn_float16* f16_kernel = (const xnn_float16*)kernel;
+  const xnn_float16* f16_bias = (const xnn_float16*)bias;
+  for (size_t i = 0; i < num_kernel_entries; ++i) {
+    fp32_kernel_buffer[i] = xnn_float16_to_float(f16_kernel[i]);
+  }
+  if (bias && !(flags & XNN_FLAG_FP32_STATIC_BIASES)) {
+    fp32_bias_buffer = (float*)xnn_allocate_memory(
+        groups * group_output_channels * sizeof(float));
+    for (size_t i = 0; i < groups * group_output_channels; ++i) {
+      fp32_bias_buffer[i] = xnn_float16_to_float(f16_bias[i]);
+    }
+    bias = fp32_bias_buffer;
+  }
+
+  // Delegate creation to the `f32` operator.
+  enum xnn_status status = xnn_create_convolution2d_nchw_f32(
+      input_padding_top, input_padding_right, input_padding_bottom,
+      input_padding_left, kernel_height, kernel_width, subsampling_height,
+      subsampling_width, dilation_height, dilation_width, groups,
+      group_input_channels, group_output_channels, input_channel_stride,
+      output_channel_stride, fp32_kernel_buffer, bias, output_min, output_max,
+      flags, code_cache, weights_cache, convolution_op_out);
+
+  // Release temporary `f32` buffers.
+  xnn_release_memory(fp32_kernel_buffer);
+  xnn_release_memory(fp32_bias_buffer);
+
   return status;
 }
 
@@ -975,12 +1030,6 @@ static enum xnn_status reshape_convolution2d_nchw(
     return xnn_status_success;
   }
 
-  if (convolution_op->weights_cache != NULL && !xnn_weights_cache_is_finalized(convolution_op->weights_cache)) {
-    xnn_log_error("failed to reshape %s operator: weights cache is not finalized",
-      xnn_operator_type_to_string(convolution_op->type));
-    return xnn_status_invalid_state;
-  }
-
   convolution_op->batch_size = batch_size;
   convolution_op->input_height = input_height;
   convolution_op->input_width = input_width;
@@ -1004,9 +1053,7 @@ static enum xnn_status reshape_convolution2d_nchw(
 
   const size_t input_batch_stride = (input_height * input_width * convolution_op->input_pixel_stride) << log2_input_element_size;
   const size_t output_batch_stride = (output_height * output_width * convolution_op->output_pixel_stride) << log2_output_element_size;
-  #if !XNN_TEST_MODE
-    const size_t num_threads = pthreadpool_get_threads_count(threadpool);
-  #endif
+  const size_t num_threads = pthreadpool_get_threads_count(threadpool);
   switch (convolution_op->ukernel.type) {
     case xnn_microkernel_type_spmm:
     {
@@ -1050,18 +1097,14 @@ static enum xnn_status reshape_convolution2d_nchw(
       memcpy(&convolution_op->context.spmm.params, params, sizeof(convolution_op->context.spmm.params));
 
       const size_t mr = convolution_op->ukernel.spmm.mr;
-      #if XNN_TEST_MODE
-        const size_t mc = mr;
-      #else
-        size_t mc = input_size;
-        if (num_threads > 1) {
-          const size_t target_tiles_per_thread = 5;
-          const size_t max_mc = divide_round_up(input_size, num_threads * target_tiles_per_thread);
-          if (max_mc < mc) {
-            mc = min(mc, divide_round_up(mc, max_mc * mr) * mr);
-          }
+      size_t mc = input_size;
+      if (num_threads > 1) {
+        const size_t target_tiles_per_thread = 5;
+        const size_t max_mc = divide_round_up(input_size, num_threads * target_tiles_per_thread);
+        if (max_mc < mc) {
+          mc = min(mc, divide_round_up(mc, max_mc * mr) * mr);
         }
-      #endif
+      }
       convolution_op->compute[0].type = xnn_parallelization_type_2d_tile_1d;
       convolution_op->compute[0].task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_spmm;
       convolution_op->compute[0].range[0] = batch_size;
@@ -1101,19 +1144,15 @@ static enum xnn_status reshape_convolution2d_nchw(
       memcpy(&convolution_op->context.conv2d.params, params, sizeof(convolution_op->context.conv2d.params));
 
       const size_t output_height_tile = convolution_op->ukernel.conv2d.output_height_tile;
-      #if XNN_TEST_MODE
-        size_t output_height_slice = output_height_tile;
-      #else
-        size_t output_height_slice = output_height;
-        if (num_threads > 1) {
-          const size_t target_tiles_per_thread = 5;
-          const size_t max_output_height_slice = divide_round_up(output_height, num_threads * target_tiles_per_thread);
-          if (max_output_height_slice < output_height_slice) {
-            output_height_slice = min(output_height_slice,
-              divide_round_up(output_height_slice, max_output_height_slice * output_height_tile) * output_height_tile);
-          }
+      size_t output_height_slice = output_height;
+      if (num_threads > 1) {
+        const size_t target_tiles_per_thread = 5;
+        const size_t max_output_height_slice = divide_round_up(output_height, num_threads * target_tiles_per_thread);
+        if (max_output_height_slice < output_height_slice) {
+          output_height_slice = min(output_height_slice,
+            divide_round_up(output_height_slice, max_output_height_slice * output_height_tile) * output_height_tile);
         }
-      #endif
+      }
       convolution_op->compute[0].type = xnn_parallelization_type_2d_tile_1d;
       convolution_op->compute[0].task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_conv2d_hwc2chw;
       convolution_op->compute[0].range[0] = batch_size;
@@ -1137,9 +1176,6 @@ static enum xnn_status reshape_convolution2d_nchw(
         return xnn_status_out_of_memory;
       }
 
-      if (convolution_op->ukernel.dwconv2d.update_params != NULL) {
-        convolution_op->ukernel.dwconv2d.update_params(chw_params, (uint32_t) input_width);
-      }
       convolution_op->context.dwconv2d = (struct dwconv2d_context) {
         .input_height = input_height,
         .input_width = input_width << log2_input_element_size,
@@ -1226,6 +1262,12 @@ static enum xnn_status setup_convolution2d_nchw(
       xnn_operator_type_to_string(expected_operator_type),
       xnn_operator_type_to_string(convolution_op->type));
     return xnn_status_invalid_parameter;
+  }
+
+  if (convolution_op->weights_cache != NULL && !xnn_weights_cache_is_finalized(convolution_op->weights_cache)) {
+    xnn_log_error("failed to setup %s operator: weights cache is not finalized",
+      xnn_operator_type_to_string(expected_operator_type));
+    return xnn_status_invalid_state;
   }
 
   switch (convolution_op->state) {

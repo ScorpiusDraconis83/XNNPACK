@@ -12,10 +12,10 @@
 
 #include <assert.h>
 
-#include <xnnpack/common.h>
-#include <xnnpack/math.h>
-#include <xnnpack/transpose.h>
-#include <xnnpack/unaligned.h>
+#include "xnnpack/common.h"
+#include "xnnpack/math.h"
+#include "xnnpack/transpose.h"
+#include "xnnpack/unaligned.h"
 
 void xnn_x32_transposec_ukernel__8x8_reuse_multi_avx(
     const uint32_t* input,
@@ -23,11 +23,12 @@ void xnn_x32_transposec_ukernel__8x8_reuse_multi_avx(
     size_t input_stride,
     size_t output_stride,
     size_t block_width,
-    size_t block_height,
-    const union xnn_x32_transpose_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    size_t block_height) XNN_OOB_READS
 {
-  assert(output_stride >= block_height * sizeof(float));
-  assert(input_stride >= block_width * sizeof(float));
+  static const int32_t mask_table[15] = {-1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0};
+
+  assert(block_width == 1 || output_stride >= block_height * sizeof(float));
+  assert(block_height == 1 || input_stride >= block_width * sizeof(float));
 
   const size_t tile_height = 8;
   const size_t tile_width = 8;
@@ -49,7 +50,7 @@ void xnn_x32_transposec_ukernel__8x8_reuse_multi_avx(
     float* o7 = (float*) (block_width < 8 ? o0 : (float*) ((uintptr_t) o6 + output_stride));
     const size_t rem = min(block_width - 1, 7);
 
-    __m256i vmask = _mm256_loadu_si256((const __m256i*) ((uintptr_t) &params->avx.mask_table[rem ^ 7]));
+    __m256i vmask = _mm256_loadu_si256((const __m256i*) ((uintptr_t) &mask_table[rem ^ 7]));
 
     size_t bh = block_height;
     for (; bh >= 8; bh -= 8) {

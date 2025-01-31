@@ -5,60 +5,60 @@
 
 #pragma once
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <functional>
 #include <random>
 #include <vector>
 
-#include <xnnpack.h>
-#include <xnnpack/aligned-allocator.h>
-#include <xnnpack/microfnptr.h>
-
+#include <gtest/gtest.h>
+#include "xnnpack.h"
+#include "xnnpack/microfnptr.h"
+#include "xnnpack/buffer.h"
+#include "replicable_random_device.h"
 
 class PackMicrokernelTester {
  public:
-  inline PackMicrokernelTester& mr(size_t mr) {
+  PackMicrokernelTester& mr(size_t mr) {
     assert(mr != 0);
     this->mr_ = mr;
     return *this;
   }
 
-  inline size_t mr() const {
+  size_t mr() const {
     return this->mr_;
   }
 
-  inline PackMicrokernelTester& m(size_t m) {
+  PackMicrokernelTester& m(size_t m) {
     assert(m != 0);
     this->m_ = m;
     return *this;
   }
 
-  inline size_t m() const {
+  size_t m() const {
     return this->m_;
   }
 
-  inline PackMicrokernelTester& k(size_t k) {
+  PackMicrokernelTester& k(size_t k) {
     assert(k != 0);
     this->k_ = k;
     return *this;
   }
 
-  inline size_t k() const {
+  size_t k() const {
     return this->k_;
   }
 
-  inline PackMicrokernelTester& x_stride(size_t x_stride) {
+  PackMicrokernelTester& x_stride(size_t x_stride) {
     assert(x_stride != 0);
     this->x_stride_ = x_stride;
     return *this;
   }
 
-  inline size_t x_stride() const {
+  size_t x_stride() const {
     if (this->x_stride_ == 0) {
       return k();
     } else {
@@ -67,24 +67,25 @@ class PackMicrokernelTester {
     }
   }
 
-  inline PackMicrokernelTester& iterations(size_t iterations) {
+  PackMicrokernelTester& iterations(size_t iterations) {
     this->iterations_ = iterations;
     return *this;
   }
 
-  inline size_t iterations() const {
+  size_t iterations() const {
     return this->iterations_;
   }
 
   void Test(xnn_x32_packx_ukernel_fn packx) const {
-    std::random_device random_device;
-    auto rng = std::mt19937(random_device());
-    auto u32rng = std::bind(std::uniform_int_distribution<uint32_t>(), rng);
+    xnnpack::ReplicableRandomDevice rng;
+    auto u32rng = [&rng]() {
+      return std::uniform_int_distribution<uint32_t>()(rng);
+    };
 
     const uint32_t c = u32rng();
-    std::vector<uint32_t> x(k() + (m() - 1) * x_stride() + XNN_EXTRA_BYTES / sizeof(uint32_t));
-    std::vector<uint32_t, AlignedAllocator<uint32_t, 64>> y(mr() * k());
-    std::vector<uint32_t> y_ref(mr() * k());
+    xnnpack::Buffer<uint32_t> x(k() + (m() - 1) * x_stride() + XNN_EXTRA_BYTES / sizeof(uint32_t));
+    xnnpack::Buffer<uint32_t, XNN_ALLOCATION_ALIGNMENT> y(mr() * k());
+    xnnpack::Buffer<uint32_t> y_ref(mr() * k());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(x.begin(), x.end(), std::ref(u32rng));
       std::generate(y.begin(), y.end(), std::ref(u32rng));

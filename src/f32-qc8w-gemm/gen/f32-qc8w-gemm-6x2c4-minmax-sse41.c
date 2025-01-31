@@ -11,8 +11,8 @@
 
 #include <smmintrin.h>
 
-#include <xnnpack/gemm.h>
-#include <xnnpack/unaligned.h>
+#include "xnnpack/gemm.h"
+#include "xnnpack/unaligned.h"
 
 
 void xnn_f32_qc8w_gemm_minmax_ukernel_6x2c4__sse41(
@@ -68,6 +68,11 @@ void xnn_f32_qc8w_gemm_minmax_ukernel_6x2c4__sse41(
     a5 = a4;
     c5 = c4;
   }
+
+  const __m128 vmin = _mm_set1_ps(params->scalar.min);
+  const __m128 vmax = _mm_set1_ps(params->scalar.max);
+  XNN_FORCE_REALIZATION(vmin);
+  XNN_FORCE_REALIZATION(vmax);
 
   do {
     __m128 vacc0x0c4 = _mm_load_ss(w);
@@ -172,12 +177,10 @@ void xnn_f32_qc8w_gemm_minmax_ukernel_6x2c4__sse41(
     vacc01x01 = _mm_mul_ps(vacc01x01, vscale2x01);
     vacc23x01 = _mm_mul_ps(vacc23x01, vscale2x01);
     vacc45x01 = _mm_mul_ps(vacc45x01, vscale2x01);
-    const __m128 vmax = _mm_load_ps(params->sse.max);
     vacc01x01 = _mm_min_ps(vacc01x01, vmax);
     vacc23x01 = _mm_min_ps(vacc23x01, vmax);
     vacc45x01 = _mm_min_ps(vacc45x01, vmax);
 
-    const __m128 vmin = _mm_load_ps(params->sse.min);
     vacc01x01 = _mm_max_ps(vacc01x01, vmin);
     vacc23x01 = _mm_max_ps(vacc23x01, vmin);
     vacc45x01 = _mm_max_ps(vacc45x01, vmin);

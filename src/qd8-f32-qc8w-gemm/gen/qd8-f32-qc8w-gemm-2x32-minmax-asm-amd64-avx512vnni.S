@@ -1,0 +1,163 @@
+// Copyright 2025 Google LLC
+//
+// This source code is licensed under the BSD-style license found in the
+// LICENSE file in the root directory of this source tree.
+
+#include "xnnpack/assembly.h"
+
+BEGIN_FUNCTION xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x32c4__asm_amd64_avx512vnni
+
+      .intel_syntax noprefix
+
+      # Free up GP registers.
+      push rbx
+      push rbp
+      push r15
+      push r14
+      push r13
+      push r12
+
+      # load params to free up a GP registers
+      mov r13, [rsp + 80] # params
+      vbroadcastss zmm0, DWORD PTR [r13]
+      vbroadcastss zmm1, DWORD PTR [r13 + 4]
+
+      # Load c pointer.
+      mov r10, [rsp + 56]
+      # Load cm_stride.
+      mov r11, [rsp + 64]
+
+      add rdx, 3
+      and rdx, -4
+
+      # Allocate some space on the stack.
+      sub rsp, 592
+
+      # Clamp a & c pointers if mr <= 1
+      mov rax, rcx
+      add rax, r8
+      mov r13, r10
+      add r13, r11
+      cmp rdi, 1
+      cmovle rax, rcx
+      cmovle r13, r10
+
+      # Load quantization params pointer from stack
+      mov r11, [rsp + 680]
+      mov edi, [r11 + 0]
+      vpbroadcastd zmm6, edi
+      vmovups zmmword ptr [rsp + 464], zmm6
+      mov edi, [r11 + 8]
+      vpbroadcastd zmm6, edi
+      vmovups zmmword ptr [rsp + 528], zmm6
+
+outer_loop:
+      # Initialize k counter.
+      mov r11, 0
+      # Initialize accumulators with k_sum * input zero point.
+      vmovaps  zmm6, [r9 + 0]
+      vmovaps  zmm7, [r9 + 64]
+      vpmulld zmm5, zmm6, ZMMWORD PTR [rsp + 464]
+      vpmulld zmm12, zmm6, ZMMWORD PTR [rsp + 528]
+      vpmulld zmm14, zmm7, ZMMWORD PTR [rsp + 464]
+      vpmulld zmm15, zmm7, ZMMWORD PTR [rsp + 528]
+      add r9, 128
+
+inner_loop:
+      vmovaps  zmm6, [r9 + 0]
+      vmovaps  zmm7, [r9 + 64]
+      add r9, 128
+      vpbroadcastd zmm2, [rcx + r11]
+      vpdpbusd  zmm5, zmm2, zmm6
+      vpdpbusd  zmm14, zmm2, zmm7
+      vpbroadcastd zmm2, [rax + r11]
+      vpdpbusd  zmm12, zmm2, zmm6
+      vpdpbusd  zmm15, zmm2, zmm7
+
+      add r11, 4
+      cmp rdx, r11
+      jne inner_loop
+inner_loop_end:
+
+      # Convert from int32 to float.
+      vcvtdq2ps zmm5, zmm5
+      vcvtdq2ps zmm12, zmm12
+      vcvtdq2ps zmm14, zmm14
+      vcvtdq2ps zmm15, zmm15
+      # Load quantization_params pointer from stack
+      mov r11, [rsp + 680]
+      vmulps zmm5, zmm5, DWORD PTR [r11 + 4]{1to16}
+      vmulps zmm12, zmm12, DWORD PTR [r11 + 12]{1to16}
+      vmulps zmm14, zmm14, DWORD PTR [r11 + 4]{1to16}
+      vmulps zmm15, zmm15, DWORD PTR [r11 + 12]{1to16}
+      vmovaps zmm10, [r9 + 0]
+      vmovaps zmm11, [r9 + 64]
+      add r9, 128
+      vmovaps zmm6, [r9 + 0]
+      vmovaps zmm7, [r9 + 64]
+      add r9, 128
+      vfmadd213ps zmm5, zmm10, zmm6
+      vfmadd213ps zmm12, zmm10, zmm6
+      vfmadd213ps zmm14, zmm11, zmm7
+      vfmadd213ps zmm15, zmm11, zmm7
+      # Min/max clamping.
+      vminps  zmm5, zmm1, zmm5
+      vminps  zmm12, zmm1, zmm12
+      vminps  zmm14, zmm1, zmm14
+      vminps  zmm15, zmm1, zmm15
+      vmaxps  zmm5, zmm0, zmm5
+      vmaxps  zmm12, zmm0, zmm12
+      vmaxps  zmm14, zmm0, zmm14
+      vmaxps  zmm15, zmm0, zmm15
+
+      # Check whether full or partial store.
+      cmp rsi, 32
+      jl tail
+
+      vmovups  [r10], zmm5
+      vmovups  [r10 + 64], zmm14
+      vmovups  [r13], zmm12
+      vmovups  [r13 + 64], zmm15
+      add r10, 128
+      add r13, 128
+
+      sub rsi, 32
+      jne outer_loop
+      jmp return
+
+tail:
+      mov r11, -1
+      shlx r11, r11, rsi
+      not r11
+      kmovw k1, r11d
+      shr r11d, 16
+      kmovw k2, r11d
+      vmovups  ZMMWORD PTR [r10]{k1}, zmm5
+      vmovups  ZMMWORD PTR [r10 + 64]{k2}, zmm14
+      vmovups  ZMMWORD PTR [r13]{k1}, zmm12
+      vmovups  ZMMWORD PTR [r13 + 64]{k2}, zmm15
+
+return:
+      add rsp, 592
+
+      # Restore the callee saved registers.
+      pop r12
+      pop r13
+      pop r14
+      pop r15
+      pop rbp
+      pop rbx
+      ret
+END_FUNCTION xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x32c4__asm_amd64_avx512vnni
+
+      #ifdef __has_feature
+      #if __has_feature(dataflow_sanitizer)
+BEGIN_FUNCTION xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x32c4__asm_amd64_avx512vnni.dfsan
+      .intel_syntax noprefix
+      # We could implement this by calling a function that implements the dfsan instrumentation.
+      # For now, just break, so if someone tries to use this, they'll know where the problem is.
+      int 3
+      ret
+END_FUNCTION xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x32c4__asm_amd64_avx512vnni.dfsan
+      #endif
+      #endif

@@ -3,8 +3,9 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include <gtest/gtest.h>
+#include <cstddef>
 
+#include <gtest/gtest.h>
 #include "constant-pad-operator-tester.h"
 
 constexpr size_t kDim1 = 2;

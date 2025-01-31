@@ -7,28 +7,28 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <assert.h>
+#include <inttypes.h>
 #include <math.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <fp16/fp16.h>
-
-#include <xnnpack.h>
-#include <xnnpack/allocator.h>
-#include <xnnpack/common.h>
-#include <xnnpack/config.h>
-#include <xnnpack/indirection.h>
-#include <xnnpack/log.h>
-#include <xnnpack/math.h>
-#include <xnnpack/operator.h>
-#include <xnnpack/operator-utils.h>
-#include <xnnpack/operator-type.h>
-#include <xnnpack/microparams-init.h>
-#include <xnnpack/params.h>
-
+#include "xnnpack.h"
+#include "xnnpack/allocator.h"
+#include "xnnpack/common.h"
+#include "xnnpack/compute.h"
+#include "xnnpack/config-types.h"
+#include "xnnpack/config.h"
+#include "xnnpack/indirection.h"
+#include "xnnpack/log.h"
+#include "xnnpack/math.h"
+#include "xnnpack/microparams.h"
+#include "xnnpack/operator-type.h"
+#include "xnnpack/operator-utils.h"
+#include "xnnpack/operator.h"
+#include "xnnpack/params.h"
+#include "pthreadpool.h"
 
 static inline size_t compute_output_dimension_with_tf_same_padding(
     size_t input_dimension,
@@ -48,9 +48,6 @@ static enum xnn_status create_max_pooling2d_nhwc(
     uint32_t stride_width,
     uint32_t dilation_height,
     uint32_t dilation_width,
-    size_t channels,
-    size_t input_pixel_stride,
-    size_t output_pixel_stride,
     uint32_t flags,
     const void* params,
     size_t params_size,
@@ -114,29 +111,6 @@ static enum xnn_status create_max_pooling2d_nhwc(
     return xnn_status_invalid_parameter;
   }
 
-  if (channels == 0) {
-    xnn_log_error(
-      "failed to create %s operator with %zu channels: number of channels must be non-zero",
-      xnn_operator_type_to_string(operator_type), channels);
-    goto error;
-  }
-
-  if (input_pixel_stride < channels) {
-    xnn_log_error(
-      "failed to create %s operator with input pixel stride of %zu: "
-      "stride must be at least as large as the number of channels (%zu)",
-      xnn_operator_type_to_string(operator_type), input_pixel_stride, channels);
-    goto error;
-  }
-
-  if (output_pixel_stride < channels) {
-    xnn_log_error(
-      "failed to create %s operator with output pixel stride of %zu: "
-      "stride must be at least as large as the number of channels (%zu)",
-      xnn_operator_type_to_string(operator_type), output_pixel_stride, channels);
-    goto error;
-  }
-
   const bool any_padding = (input_padding_left | input_padding_top | input_padding_right | input_padding_bottom) != 0;
   if ((flags & XNN_FLAG_TENSORFLOW_SAME_PADDING) != 0) {
     if (any_padding) {
@@ -170,9 +144,6 @@ static enum xnn_status create_max_pooling2d_nhwc(
   max_pooling_op->stride_width = stride_width;
   max_pooling_op->dilation_height = dilation_height;
   max_pooling_op->dilation_width = dilation_width;
-  max_pooling_op->channels = channels;
-  max_pooling_op->input_pixel_stride = input_pixel_stride;
-  max_pooling_op->output_pixel_stride = output_pixel_stride;
 
   memcpy(&max_pooling_op->params, params, params_size);
   max_pooling_op->type = operator_type;
@@ -200,31 +171,27 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_s8(
     uint32_t stride_width,
     uint32_t dilation_height,
     uint32_t dilation_width,
-    size_t channels,
-    size_t input_pixel_stride,
-    size_t output_pixel_stride,
     int8_t output_min,
     int8_t output_max,
     uint32_t flags,
     xnn_operator_t* max_pooling_op_out)
 {
-  if (output_min >= output_max) {
+  if (output_min > output_max) {
     xnn_log_error(
-      "failed to create %s operator with [%" PRId8 ", %" PRId8 "] output range: range min must be below range max",
+      "failed to create %s operator with [%" PRId8 ", %" PRId8 "] output range: lower bound must be less than or equal to upper bound",
       xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_s8), output_min, output_max);
     return xnn_status_invalid_parameter;
   }
 
   const struct xnn_maxpool_config* maxpool_config = xnn_init_s8_maxpool_config();
   assert(maxpool_config != NULL);
-  union xnn_s8_minmax_params params;
+  struct xnn_s8_minmax_params params;
   maxpool_config->init.s8(&params, output_min, output_max);
   return create_max_pooling2d_nhwc(
     input_padding_top, input_padding_right, input_padding_bottom, input_padding_left,
     pooling_height, pooling_width,
     stride_height, stride_width,
     dilation_height, dilation_width,
-    channels, input_pixel_stride, output_pixel_stride,
     flags,
     &params, sizeof(params),
     maxpool_config,
@@ -243,31 +210,27 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_u8(
     uint32_t stride_width,
     uint32_t dilation_height,
     uint32_t dilation_width,
-    size_t channels,
-    size_t input_pixel_stride,
-    size_t output_pixel_stride,
     uint8_t output_min,
     uint8_t output_max,
     uint32_t flags,
     xnn_operator_t* max_pooling_op_out)
 {
-  if (output_min >= output_max) {
+  if (output_min > output_max) {
     xnn_log_error(
-      "failed to create %s operator with [%" PRIu8 ", %" PRIu8 "] output range: range min must be below range max",
+      "failed to create %s operator with [%" PRIu8 ", %" PRIu8 "] output range: lower bound must be less than or equal to upper bound",
       xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_u8), output_min, output_max);
     return xnn_status_invalid_parameter;
   }
 
   const struct xnn_maxpool_config* maxpool_config = xnn_init_u8_maxpool_config();
   assert(maxpool_config != NULL);
-  union xnn_u8_minmax_params params;
+  struct xnn_u8_minmax_params params;
   maxpool_config->init.u8(&params, output_min, output_max);
   return create_max_pooling2d_nhwc(
     input_padding_top, input_padding_right, input_padding_bottom, input_padding_left,
     pooling_height, pooling_width,
     stride_height, stride_width,
     dilation_height, dilation_width,
-    channels, input_pixel_stride, output_pixel_stride,
     flags,
     &params, sizeof(params),
     maxpool_config,
@@ -286,9 +249,6 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_f32(
     uint32_t stride_width,
     uint32_t dilation_height,
     uint32_t dilation_width,
-    size_t channels,
-    size_t input_pixel_stride,
-    size_t output_pixel_stride,
     float output_min,
     float output_max,
     uint32_t flags,
@@ -308,9 +268,9 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_f32(
     return xnn_status_invalid_parameter;
   }
 
-  if (output_min >= output_max) {
+  if (output_min > output_max) {
     xnn_log_error(
-      "failed to create %s with [%.7g, %.7g] output range: lower bound must be below upper bound",
+      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be less than or equal to upper bound",
       xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_f32), output_min, output_max);
     return xnn_status_invalid_parameter;
   }
@@ -329,7 +289,6 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_f32(
     pooling_height, pooling_width,
     stride_height, stride_width,
     dilation_height, dilation_width,
-    channels, input_pixel_stride, output_pixel_stride,
     flags,
     &params, sizeof(params),
     maxpool_config,
@@ -348,9 +307,6 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_f16(
     uint32_t stride_width,
     uint32_t dilation_height,
     uint32_t dilation_width,
-    size_t channels,
-    size_t input_pixel_stride,
-    size_t output_pixel_stride,
     float output_min,
     float output_max,
     uint32_t flags,
@@ -370,13 +326,13 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_f16(
     return xnn_status_invalid_parameter;
   }
 
-  const uint16_t output_min_as_half = fp16_ieee_from_fp32_value(output_min);
-  const uint16_t output_max_as_half = fp16_ieee_from_fp32_value(output_max);
-  output_min = fp16_ieee_to_fp32_value(output_min_as_half);
-  output_max = fp16_ieee_to_fp32_value(output_max_as_half);
-  if (output_min >= output_max) {
+  const xnn_float16 output_min_as_half = xnn_float16_from_float(output_min);
+  const xnn_float16 output_max_as_half = xnn_float16_from_float(output_max);
+  output_min = xnn_float16_to_float(output_min_as_half);
+  output_max = xnn_float16_to_float(output_max_as_half);
+  if (output_min > output_max) {
     xnn_log_error(
-      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be below upper bound",
+      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be less than or equal to upper bound",
       xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_f16), output_min, output_max);
     return xnn_status_invalid_parameter;
   }
@@ -397,7 +353,6 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_f16(
     pooling_height, pooling_width,
     stride_height, stride_width,
     dilation_height, dilation_width,
-    channels, input_pixel_stride, output_pixel_stride,
     flags,
     &params, sizeof(params),
     maxpool_config,
@@ -411,6 +366,9 @@ static enum xnn_status reshape_max_pooling2d_nhwc(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
+  size_t channels,
+  size_t input_pixel_stride,
+  size_t output_pixel_stride,
   uint32_t log2_input_element_size,
   uint32_t log2_output_element_size,
   const struct xnn_maxpool_config maxpool[restrict XNN_MIN_ELEMENTS(1)],
@@ -441,6 +399,33 @@ static enum xnn_status reshape_max_pooling2d_nhwc(
       xnn_operator_type_to_string(max_pooling_op->type), input_width, input_height);
     return xnn_status_invalid_parameter;
   }
+
+  if (channels == 0) {
+    xnn_log_error(
+      "failed to reshape %s operator with %zu channels: number of channels must be non-zero",
+      xnn_operator_type_to_string(expected_operator_type), channels);
+    return xnn_status_invalid_parameter;
+  }
+
+  if (input_pixel_stride < channels) {
+    xnn_log_error(
+      "failed to reshape %s operator with input pixel stride of %zu: "
+      "stride must be at least as large as the number of channels (%zu)",
+      xnn_operator_type_to_string(expected_operator_type), input_pixel_stride, channels);
+    return xnn_status_invalid_parameter;
+  }
+
+  if (output_pixel_stride < channels) {
+    xnn_log_error(
+      "failed to reshape %s operator with output pixel stride of %zu: "
+      "stride must be at least as large as the number of channels (%zu)",
+      xnn_operator_type_to_string(expected_operator_type), output_pixel_stride, channels);
+    return xnn_status_invalid_parameter;
+  }
+
+  max_pooling_op->channels = channels;
+  max_pooling_op->input_pixel_stride = input_pixel_stride;
+  max_pooling_op->output_pixel_stride = output_pixel_stride;
 
   if (batch_size == 0) {
     max_pooling_op->state = xnn_run_state_skip;
@@ -516,7 +501,16 @@ static enum xnn_status reshape_max_pooling2d_nhwc(
     // Set a dummy input first, the actual input offset is calculated in setup when we have the input pointer.
     max_pooling_op->input = NULL;
 
-    xnn_indirection_init_maxpool2d(max_pooling_op, step_height, step_width, log2_input_element_size);
+    xnn_indirection_init_maxpool2d(
+      max_pooling_op->indirection_buffer, max_pooling_op->input,
+      max_pooling_op->input_pixel_stride << log2_input_element_size,
+      max_pooling_op->input_height, max_pooling_op->input_width,
+      max_pooling_op->output_height, max_pooling_op->output_width,
+      max_pooling_op->kernel_height, max_pooling_op->kernel_width,
+      max_pooling_op->stride_height, max_pooling_op->stride_width,
+      max_pooling_op->dilation_height, max_pooling_op->dilation_width,
+      max_pooling_op->padding_top, max_pooling_op->padding_left,
+      step_height, step_width);
 
     max_pooling_op->last_input = max_pooling_op->input;
     max_pooling_op->last_input_height = input_height;
@@ -524,7 +518,6 @@ static enum xnn_status reshape_max_pooling2d_nhwc(
   }
 
   const uint32_t remainder_pass_tile_size = maxpool->remainder_pass_tile_size;
-  const size_t channels = max_pooling_op->channels;
 
   const size_t indirect_input_height_stride = step_height * sizeof(void*);
   const size_t output_width_stride = max_pooling_op->output_pixel_stride << log2_output_element_size;
@@ -560,6 +553,9 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_s8(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
+  size_t channels,
+  size_t input_pixel_stride,
+  size_t output_pixel_stride,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool)
@@ -567,6 +563,7 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_s8(
   return reshape_max_pooling2d_nhwc(
     max_pooling_op, xnn_operator_type_max_pooling_nhwc_s8,
     batch_size, input_height, input_width,
+    channels, input_pixel_stride, output_pixel_stride,
     /*log2_input_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
     /*log2_output_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
     max_pooling_op->maxpool_config,
@@ -580,6 +577,9 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_u8(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
+  size_t channels,
+  size_t input_pixel_stride,
+  size_t output_pixel_stride,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool)
@@ -587,6 +587,7 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_u8(
   return reshape_max_pooling2d_nhwc(
     max_pooling_op, xnn_operator_type_max_pooling_nhwc_u8,
     batch_size, input_height, input_width,
+    channels, input_pixel_stride, output_pixel_stride,
     /*log2_input_element_size=*/XNN_LOG2_SIZEOF_UINT8_T,
     /*log2_output_element_size=*/XNN_LOG2_SIZEOF_UINT8_T,
     max_pooling_op->maxpool_config,
@@ -600,6 +601,9 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_f16(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
+  size_t channels,
+  size_t input_pixel_stride,
+  size_t output_pixel_stride,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool)
@@ -607,6 +611,7 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_f16(
   return reshape_max_pooling2d_nhwc(
     max_pooling_op, xnn_operator_type_max_pooling_nhwc_f16,
     batch_size, input_height, input_width,
+    channels, input_pixel_stride, output_pixel_stride,
     /*log2_input_element_size=*/XNN_LOG2_SIZEOF_HALF,
     /*log2_output_element_size=*/XNN_LOG2_SIZEOF_HALF,
     max_pooling_op->maxpool_config,
@@ -620,6 +625,9 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_f32(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
+  size_t channels,
+  size_t input_pixel_stride,
+  size_t output_pixel_stride,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool)
@@ -627,6 +635,7 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_f32(
   return reshape_max_pooling2d_nhwc(
     max_pooling_op, xnn_operator_type_max_pooling_nhwc_f32,
     batch_size, input_height, input_width,
+    channels, input_pixel_stride, output_pixel_stride,
     /*log2_input_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
     /*log2_output_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
     max_pooling_op->maxpool_config,

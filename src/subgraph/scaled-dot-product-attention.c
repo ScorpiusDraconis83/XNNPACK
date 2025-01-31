@@ -9,14 +9,15 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <xnnpack.h>
-#include <xnnpack/log.h>
-#include <xnnpack/node-type.h>
-#include <xnnpack/operator.h>
-#include <xnnpack/operator-type.h>
-#include <xnnpack/subgraph.h>
-#include <xnnpack/subgraph-validation.h>
-
+#include "xnnpack.h"
+#include "xnnpack/common.h"
+#include "xnnpack/log.h"
+#include "xnnpack/node-type.h"
+#include "xnnpack/operator-type.h"
+#include "xnnpack/operator.h"
+#include "xnnpack/subgraph-validation.h"
+#include "xnnpack/subgraph.h"
+#include "pthreadpool.h"
 
 static enum xnn_status create_scaled_dot_product_attention_operator(
   const struct xnn_node* node,
@@ -24,14 +25,17 @@ static enum xnn_status create_scaled_dot_product_attention_operator(
   size_t num_values,
   struct xnn_operator_data* opdata,
   struct xnn_code_cache* code_cache,
-  struct xnn_weights_cache* weights_cache)
+  xnn_weights_cache_t weights_cache)
 {
   assert(node->num_inputs == 5);
   assert(node->num_outputs == 1);
 
   enum xnn_status status;
-  switch (node->compute_type) {
-    case xnn_compute_type_fp32:
+  const uint32_t input_id = node->inputs[0];
+  assert(input_id < num_values);
+  const struct xnn_value *input_value = &values[input_id];
+  switch (input_value->datatype) {
+    case xnn_datatype_fp32:
     {
       status = xnn_create_scaled_dot_product_attention_nhtc_f32(
         node->params.scaled_dot_product_attention.cap_type,
@@ -40,7 +44,7 @@ static enum xnn_status create_scaled_dot_product_attention_operator(
         &opdata->operator_objects[0]);
       break;
     }
-    case xnn_compute_type_fp16:
+    case xnn_datatype_fp16:
     {
       status = xnn_create_scaled_dot_product_attention_nhtc_f16(
         node->params.scaled_dot_product_attention.cap_type,
@@ -53,6 +57,65 @@ static enum xnn_status create_scaled_dot_product_attention_operator(
       XNN_UNREACHABLE;
   }
   return status;
+}
+
+static enum xnn_status resize_scaled_dot_product_attention_output_tensor(
+  const struct xnn_operator_data* opdata, struct xnn_value* values, size_t num_values, size_t old_workspace_size)
+{
+  const uint32_t query_id = opdata->inputs[0];
+  const struct xnn_value* query = values + query_id;
+
+  const uint32_t value_id = opdata->inputs[2];
+  const struct xnn_value* value = values + value_id;
+
+  const uint32_t output_id = opdata->outputs[0];
+  struct xnn_value* output = values + output_id;
+
+  const size_t query_batch_size = xnn_shape_multiply_batch_dims(&query->shape, 3);
+  const size_t query_num_dims = query->shape.num_dims;
+  const size_t query_heads = query->shape.dim[query_num_dims - 3];
+  const size_t query_tokens = query->shape.dim[query_num_dims - 2];
+
+  const size_t value_channels = value->shape.dim[value->shape.num_dims - 1];
+
+  const size_t output_batch_size = xnn_shape_multiply_batch_dims(&output->shape, 3);
+  const size_t output_num_dims = output->shape.num_dims;
+
+  if (query_num_dims != output_num_dims) {
+    xnn_log_error(
+      "failed to resize %s operator's output: number of dimensions mismatch, query dims: %zu, output dims: %zu",
+        xnn_node_type_to_string(opdata->type), query_num_dims, output_num_dims);
+    return xnn_status_invalid_parameter;
+  }
+
+  // Update output batch dim(s)
+  if (query_batch_size != output_batch_size) {
+    for (uint32_t i = 0; i < query_num_dims - 3; ++i) {
+      output->shape.dim[i] = query->shape.dim[i];
+    }
+  }
+
+  // Update output head dim
+  output->shape.dim[output_num_dims - 3] = query_heads;
+
+  // Update output token dim
+  output->shape.dim[output_num_dims - 2] = query_tokens;
+
+  // Update output channel dim
+  output->shape.dim[output_num_dims - 1] = value_channels;
+
+  // Output size after resize
+  const size_t new_output_size = xnn_tensor_get_size(output);
+
+  // workspace size after reshape
+  const size_t new_workspace_size = opdata->workspace_size;
+
+  if (new_output_size > output->size || new_workspace_size > old_workspace_size) {
+    output->size = new_output_size;
+    return xnn_status_reallocation_required;
+  }
+
+  return xnn_status_success;
 }
 
 static enum xnn_status reshape_scaled_dot_product_attention_operator(
@@ -237,9 +300,12 @@ static enum xnn_status reshape_scaled_dot_product_attention_operator(
   }
 
   const size_t key_heads = is_multi_query ? 1 : key->shape.dim[key_num_dims - 3];
+  const size_t old_workspace_size = opdata->workspace_size;
+  status = xnn_status_invalid_state;
+
   switch (opdata->operator_objects[0]->type) {
     case xnn_operator_type_scaled_dot_product_attention_nhtc_f32:
-      return xnn_reshape_scaled_dot_product_attention_nhtc_f32(
+      status = xnn_reshape_scaled_dot_product_attention_nhtc_f32(
         opdata->operator_objects[0],
         batch_size,
         query_heads,
@@ -251,8 +317,9 @@ static enum xnn_status reshape_scaled_dot_product_attention_operator(
         &opdata->workspace_size,
         &opdata->workspace_alignment,
         threadpool);
+      break;
     case xnn_operator_type_scaled_dot_product_attention_nhtc_f16:
-      return xnn_reshape_scaled_dot_product_attention_nhtc_f16(
+      status = xnn_reshape_scaled_dot_product_attention_nhtc_f16(
         opdata->operator_objects[0],
         batch_size,
         query_heads,
@@ -264,9 +331,17 @@ static enum xnn_status reshape_scaled_dot_product_attention_operator(
         &opdata->workspace_size,
         &opdata->workspace_alignment,
         threadpool);
+      break;
     default:
       XNN_UNREACHABLE;
   }
+
+  if (status != xnn_status_success) {
+    return status;
+  }
+
+  // Resize the output tensor.
+  return resize_scaled_dot_product_attention_output_tensor(opdata, values, num_values, old_workspace_size);
 }
 
 static enum xnn_status setup_scaled_dot_product_attention_operator(
@@ -360,6 +435,7 @@ static enum xnn_status check_inputs(
   }
 
   switch (input_value->datatype) {
+    case xnn_datatype_fp16:
     case xnn_datatype_fp32:
       break;
     default:
@@ -620,7 +696,7 @@ enum xnn_status xnn_define_scaled_dot_product_attention(
       xnn_node_type_to_string(node_type), output_id, output_heads, heads);
     return xnn_status_invalid_parameter;
   }
-  
+
   // Output tokens must match query.
   const size_t output_tokens = output->shape.dim[output_num_dims - 2];
   if (output_tokens != query_tokens) {
@@ -640,10 +716,10 @@ enum xnn_status xnn_define_scaled_dot_product_attention(
     return xnn_status_invalid_parameter;
   }
 
-  enum xnn_compute_type compute_type = xnn_compute_type_invalid;
   switch (output->datatype) {
+    case xnn_datatype_fp16:
+      break;
     case xnn_datatype_fp32:
-      compute_type = xnn_compute_type_fp32;
       break;
     default:
       xnn_log_error(
@@ -659,7 +735,6 @@ enum xnn_status xnn_define_scaled_dot_product_attention(
   }
 
   node->type = node_type;
-  node->compute_type = compute_type;
   node->params.scaled_dot_product_attention.cap_type = cap_type;
   if (cap_type == xnn_attention_logits_cap_type_tanh) {
     memcpy(&node->params.scaled_dot_product_attention.cap_tanh_params, cap_params,

@@ -9,8 +9,8 @@
 
 #include <assert.h>
 
-#include <xnnpack/gemm.h>
-#include <xnnpack/math.h>
+#include "xnnpack/gemm.h"
+#include "xnnpack/math.h"
 
 
 void xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x8__scalar(
@@ -39,6 +39,7 @@ void xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x8__scalar(
     a1 = a0;
     c1 = c0;
   }
+
 
   do {
     const int32_t vksum0 = ((const int32_t*) w)[0];

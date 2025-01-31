@@ -9,8 +9,8 @@
 
 #include <assert.h>
 
-#include <xnnpack/math.h>
-#include <xnnpack/gemm.h>
+#include "xnnpack/math.h"
+#include "xnnpack/gemm.h"
 
 
 void xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x4__wasm(
@@ -40,6 +40,7 @@ void xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x4__wasm(
   assert(c != NULL);
 
   float* c0 = c;
+
 
   do {
     const int32_t vksum0 = ((const int32_t*) w)[0];

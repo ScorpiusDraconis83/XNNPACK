@@ -11,10 +11,11 @@
 
 #include <immintrin.h>
 
-#include <xnnpack/gemm.h>
-#include <xnnpack/intrinsics-polyfill.h>
-#include <xnnpack/math.h>
-#include <xnnpack/unaligned.h>
+#include "xnnpack/common.h"
+#include "xnnpack/gemm.h"
+#include "xnnpack/intrinsics-polyfill.h"
+#include "xnnpack/math.h"
+#include "xnnpack/unaligned.h"
 
 
 void xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x8c8__avx2(
@@ -49,6 +50,11 @@ void xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x8c8__avx2(
     c1 = c0;
   }
 
+  const __m256 vmin = _mm256_set1_ps(params->scalar.min);
+  const __m256 vmax = _mm256_set1_ps(params->scalar.max);
+  XNN_FORCE_REALIZATION(vmin);
+  XNN_FORCE_REALIZATION(vmax);
+
   do {
     const __m128i vinit0 = _mm_cvtsi32_si128(((const int*) w)[0]);
     const __m128i vinit1 = _mm_cvtsi32_si128(((const int*) w)[1]);
@@ -77,11 +83,11 @@ void xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x8c8__avx2(
     size_t k = kc;
 
     while (k >= 8 * sizeof(int8_t)) {
-      const __m128i va0 = _mm_cvtepi8_epi16(_mm_loadl_epi64((const __m128i*) a0));
-      const __m256i vxa0 = _mm256_inserti128_si256(_mm256_castsi128_si256(va0), va0, 1);
+      const __m128i va0 = _mm_broadcastq_epi64(_mm_loadl_epi64((const __m128i*) a0));
+      const __m256i vxa0 = _mm256_cvtepi8_epi16(va0);
       a0 += 8;
-      const __m128i va1 = _mm_cvtepi8_epi16(_mm_loadl_epi64((const __m128i*) a1));
-      const __m256i vxa1 = _mm256_inserti128_si256(_mm256_castsi128_si256(va1), va1, 1);
+      const __m128i va1 = _mm_broadcastq_epi64(_mm_loadl_epi64((const __m128i*) a1));
+      const __m256i vxa1 = _mm256_cvtepi8_epi16(va1);
       a1 += 8;
 
       const __m256i vxb01 = _mm256_cvtepi8_epi16(_mm_load_si128((const __m128i*) w));
@@ -131,11 +137,9 @@ void xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x8c8__avx2(
     vout0x01234567 = _mm256_fmadd_ps(vout0x01234567, vfilter_output_scale01234567, vbias01234567);
     vout1x01234567 = _mm256_fmadd_ps(vout1x01234567, vfilter_output_scale01234567, vbias01234567);
 
-    const __m256 vmin = _mm256_load_ps(params->avx.min);
     vout0x01234567 = _mm256_max_ps(vout0x01234567, vmin);
     vout1x01234567 = _mm256_max_ps(vout1x01234567, vmin);
 
-    const __m256 vmax = _mm256_load_ps(params->avx.max);
     vout0x01234567 = _mm256_min_ps(vout0x01234567, vmax);
     vout1x01234567 = _mm256_min_ps(vout1x01234567, vmax);
 

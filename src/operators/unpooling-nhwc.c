@@ -4,25 +4,26 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <assert.h>
-#include <math.h>
-#include <stdbool.h>
+#include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <xnnpack.h>
-#include <xnnpack/allocator.h>
-#include <xnnpack/config.h>
-#include <xnnpack/operator.h>
-#include <xnnpack/operator-utils.h>
-#include <xnnpack/operator-type.h>
-#include <xnnpack/log.h>
-#include <xnnpack/common.h>
-#include <xnnpack/math.h>
-#include <xnnpack/params.h>
-#include <xnnpack/indirection.h>
-
+#include "xnnpack.h"
+#include "xnnpack/allocator.h"
+#include "xnnpack/common.h"
+#include "xnnpack/compute.h"
+#include "xnnpack/config-types.h"
+#include "xnnpack/config.h"
+#include "xnnpack/indirection.h"
+#include "xnnpack/log.h"
+#include "xnnpack/math.h"
+#include "xnnpack/operator-type.h"
+#include "xnnpack/operator-utils.h"
+#include "xnnpack/operator.h"
+#include "xnnpack/params.h"
+#include "pthreadpool.h"
 
 enum xnn_status xnn_create_unpooling2d_nhwc_x32(
     uint32_t input_padding_top,
@@ -215,7 +216,20 @@ enum xnn_status xnn_reshape_unpooling2d_nhwc_x32(
   xnn_log_debug("allocated %zu bytes for indirection buffer in %s operator",
     indirection_buffer_size, xnn_operator_type_to_string(xnn_operator_type_unpooling_nhwc_x32));
 
-  xnn_indirection_init_unpool2d(unpooling_op, valid_batch_size, /*log2_element_size=*/XNN_LOG2_SIZEOF_FLOAT);
+  xnn_indirection_init_unpool2d(
+    unpooling_op->indirection_buffer,
+    unpooling_op->output,
+    unpooling_op->output_pixel_stride << XNN_LOG2_SIZEOF_FLOAT,
+    unpooling_op->batch_size,
+    unpooling_op->input_height,
+    unpooling_op->input_width,
+    unpooling_op->output_height,
+    unpooling_op->output_width,
+    unpooling_op->kernel_height,
+    unpooling_op->kernel_width,
+    unpooling_op->padding_top,
+    unpooling_op->padding_left,
+    valid_batch_size);
 
   const size_t channels = unpooling_op->channels;
   const size_t input_pixel_stride_in_bytes = unpooling_op->input_pixel_stride * sizeof(float);
