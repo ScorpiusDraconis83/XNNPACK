@@ -4,27 +4,24 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <assert.h>
-#include <math.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <xnnpack.h>
-#include <xnnpack/allocator.h>
-#include <xnnpack/config.h>
-#include <xnnpack/operator.h>
-#include <xnnpack/operator-type.h>
-#include <xnnpack/log.h>
-#include <xnnpack/common.h>
-#include <xnnpack/math.h>
-#include <xnnpack/params.h>
-#include <xnnpack/indirection.h>
-
+#include "xnnpack.h"
+#include "xnnpack/allocator.h"
+#include "xnnpack/common.h"
+#include "xnnpack/compute.h"
+#include "xnnpack/config-types.h"
+#include "xnnpack/config.h"
+#include "xnnpack/log.h"
+#include "xnnpack/operator-type.h"
+#include "xnnpack/operator.h"
+#include "xnnpack/params.h"
+#include "pthreadpool.h"
 
 static enum xnn_status create_rope_nthc(
-    size_t max_tokens,
     uint32_t flags,
     enum xnn_operator_type operator_type,
     const struct xnn_cmul_config* config,
@@ -41,13 +38,6 @@ static enum xnn_status create_rope_nthc(
 
   status = xnn_status_invalid_parameter;
 
-  if (max_tokens == 0) {
-    xnn_log_error(
-      "failed to create %s operator with %zu max tokens: maximum number of tokens must be non-zero",
-      xnn_operator_type_to_string(operator_type), max_tokens);
-    goto error;
-  }
-
   status = xnn_status_out_of_memory;
 
   rope_op = xnn_allocate_zero_simd_memory(sizeof(struct xnn_operator));
@@ -57,8 +47,6 @@ static enum xnn_status create_rope_nthc(
       sizeof(struct xnn_operator), xnn_operator_type_to_string(operator_type));
     goto error;
   }
-
-  rope_op->max_tokens = max_tokens;
 
   rope_op->type = operator_type;
   rope_op->flags = flags;
@@ -75,7 +63,6 @@ error:
 }
 
 enum xnn_status xnn_create_rope_nthc_f16(
-  size_t max_tokens,
   uint32_t flags,
   xnn_operator_t* rope_op_out)
 {
@@ -87,7 +74,6 @@ enum xnn_status xnn_create_rope_nthc_f16(
   }
 
   return create_rope_nthc(
-    max_tokens,
     flags,
     xnn_operator_type_rope_nthc_f16,
     config,
@@ -95,7 +81,6 @@ enum xnn_status xnn_create_rope_nthc_f16(
 }
 
 enum xnn_status xnn_create_rope_nthc_f32(
-  size_t max_tokens,
   uint32_t flags,
   xnn_operator_t* rope_op_out)
 {
@@ -107,7 +92,6 @@ enum xnn_status xnn_create_rope_nthc_f32(
   }
 
   return create_rope_nthc(
-    max_tokens,
     flags,
     xnn_operator_type_rope_nthc_f32,
     config,
@@ -137,13 +121,6 @@ static enum xnn_status reshape_rope_nthc(
     xnn_log_error(
       "failed to reshape %s operator with %zu tokens: number of tokens must be non-zero",
       xnn_operator_type_to_string(rope_op->type), tokens);
-    return xnn_status_invalid_parameter;
-  }
-
-  if (tokens > rope_op->max_tokens) {
-    xnn_log_error(
-      "failed to reshape %s operator with %zu tokens: number of tokens can not exceed the maximum %zu",
-      xnn_operator_type_to_string(rope_op->type), tokens, rope_op->max_tokens);
     return xnn_status_invalid_parameter;
   }
 

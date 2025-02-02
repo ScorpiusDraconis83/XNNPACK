@@ -11,15 +11,15 @@
 
 #include <arm_neon.h>
 
-#include <xnnpack/common.h>
-#include <xnnpack/reduce.h>
+#include "xnnpack/common.h"
+#include "xnnpack/reduce.h"
 
 
 void xnn_f32_rsum_ukernel__neon_u16_acc4(
     size_t batch,
     const float* input,
     float* output,
-    const union xnn_f32_scale_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const struct xnn_f32_scale_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(batch != 0);
   assert(batch % sizeof(float) == 0);
@@ -48,7 +48,7 @@ void xnn_f32_rsum_ukernel__neon_u16_acc4(
     const float32x4_t vt = vld1q_f32(input); input += 4;
     vacc0 = vaddq_f32(vacc0, vt);
   }
-  const float32x2_t vscale = vld1_dup_f32(&params->scalar.scale);
+  const float32x2_t vscale = vdup_n_f32(params->scalar.scale);
   float32x2_t vacc = vadd_f32(vget_low_f32(vacc0), vget_high_f32(vacc0));
   if XNN_UNLIKELY(batch & (2 * sizeof(float))) {
     const float32x2_t vt = vld1_f32(input); input += 2;
@@ -60,5 +60,5 @@ void xnn_f32_rsum_ukernel__neon_u16_acc4(
     vacc = vadd_f32(vacc, vt);
   }
   vacc = vmul_f32(vacc, vscale);
-  vst1_lane_f32(output, vacc, 0);
+  *output += vget_lane_f32(vacc, 0);
 }

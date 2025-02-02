@@ -1,8 +1,4 @@
 #include <gtest/gtest.h>
-
-#include <xnnpack.h>
-#include <xnnpack/normalization.h>
-
 #include "reduce-normalization-tester.h"
 
 

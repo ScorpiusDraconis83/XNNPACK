@@ -9,8 +9,8 @@
 
 #include <assert.h>
 
-#include <xnnpack/math.h>
-#include <xnnpack/gemm.h>
+#include "xnnpack/math.h"
+#include "xnnpack/gemm.h"
 
 
 void xnn_qd8_f32_qc8w_igemm_minmax_ukernel_2x4__scalar(
@@ -44,6 +44,7 @@ void xnn_qd8_f32_qc8w_igemm_minmax_ukernel_2x4__scalar(
   if XNN_UNPREDICTABLE(mr != 2) {
     c1 = c0;
   }
+
 
   do {
     const int32_t vksum0 = ((const int32_t*) w)[0];

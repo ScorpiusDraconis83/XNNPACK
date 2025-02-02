@@ -5,12 +5,14 @@
 
 #include <string.h>
 
-#include <xnnpack.h>
-#include <xnnpack/common.h>
-#include <xnnpack/log.h>
-#include <xnnpack/mutex.h>
+#include "xnnpack.h"
+#include "xnnpack/common.h"
+#include "xnnpack/log.h"
+#include "xnnpack/mutex.h"
 
 #if XNN_PLATFORM_WINDOWS
+#include <inttypes.h>
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif

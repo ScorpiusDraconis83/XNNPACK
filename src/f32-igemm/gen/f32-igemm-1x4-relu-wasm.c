@@ -9,8 +9,8 @@
 
 #include <assert.h>
 
-#include <xnnpack/igemm.h>
-#include <xnnpack/math.h>
+#include "xnnpack/igemm.h"
+#include "xnnpack/math.h"
 
 
 void xnn_f32_igemm_relu_ukernel_1x4__wasm(
@@ -25,7 +25,7 @@ void xnn_f32_igemm_relu_ukernel_1x4__wasm(
     size_t cn_stride,
     size_t a_offset,
     const float* zero,
-    const union xnn_f32_relu_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const struct xnn_f32_relu_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(mr != 0);
   assert(mr <= 1);

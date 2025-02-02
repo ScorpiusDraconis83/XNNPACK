@@ -9,8 +9,11 @@
 #include <assert.h>
 
 #include <emmintrin.h>
+#include <stddef.h>
+#include <stdint.h>
 
-#include <xnnpack/reduce.h>
+#include "xnnpack/common.h"
+#include "xnnpack/reduce.h"
 
 
 void xnn_u8_rmax_ukernel__sse2_u16(
