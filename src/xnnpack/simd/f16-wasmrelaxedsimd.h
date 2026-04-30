@@ -96,6 +96,10 @@ static XNN_INLINE xnn_simd_f16_t xnn_abs_f16(xnn_simd_f16_t a) {
   return wasm_f16x8_abs(a);
 }
 
+static XNN_INLINE xnn_simd_f16_t xnn_sqrt_f16(xnn_simd_f16_t a) {
+  return wasm_f16x8_sqrt(a);
+}
+
 static XNN_INLINE xnn_simd_f16_t xnn_neg_f16(xnn_simd_f16_t a) {
   return wasm_f16x8_neg(a);
 }
