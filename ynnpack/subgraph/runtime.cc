@@ -66,13 +66,11 @@ void ynn_runtime_value::make_buffer(ynn_runtime& runtime) {
   make_buffer(runtime, ynn::type_size_bytes(type));
 }
 
-std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
-    const std::vector<slinky::var>& dims, ynn::span<const slinky::expr> extents,
+std::vector<ynn::scheduling_split> ynn_runtime::make_loops(
+    ynn::span<const slinky::var> dims, ynn::span<const slinky::expr> extents,
     const slinky::expr& element_cost,
     ynn::span<const slinky::expr> given_splits,
-    const std::vector<slinky::index_t>& loop_order) {
-  auto sched = std::make_unique<ynn::scheduling_info>();
-
+    ynn::span<const int> loop_order) {
   int max_threads = threadpool() ? threadpool()->thread_count() : 1;
   // Enough tasks to have good load balancing.
   slinky::index_t target_task_count = max_threads > 1 ? max_threads * 2 : 1;
@@ -80,7 +78,7 @@ std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
   const int rank = dims.size();
   if (rank <= 0) {
     // Nothing to schedule here.
-    return sched;
+    return {};
   }
 
   // Area is selected such that tiles fit better into cache, this is a
@@ -124,7 +122,7 @@ std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
 
   for (int index_d = rank - 1; index_d >= 0; --index_d) {
     int d = get_loop_dim(index_d);
-    if (max_threads == 1) {
+    if (max_threads == 1 || globals.is_reduction_dim(dims[d])) {
       workers[d] = slinky::loop::serial;
     } else if (extents[d].defined() && splits[d].defined()) {
       slinky::expr w =
@@ -139,15 +137,28 @@ std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
     }
   }
 
+  std::vector<ynn::scheduling_split> loop_splits;
   for (int index_d = 0; index_d < rank; ++index_d) {
     int d = get_loop_dim(index_d);
     if (extents[d].defined() && splits[d].defined()) {
-      sched->loop_splits.push_back(
+      loop_splits.push_back(
           {dims[d], splits[d], workers[d], extents[d]});
     }
   }
 
-  return sched;
+  return loop_splits;
+}
+
+std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
+    ynn::span<const slinky::var> dims, ynn::span<const slinky::expr> extents,
+    const slinky::expr& element_cost,
+    ynn::span<const slinky::expr> given_splits,
+    ynn::span<const int> loop_order) {
+  std::vector<ynn::scheduling_split> loop_splits =
+      make_loops(dims, extents, element_cost, given_splits, loop_order);
+  auto scheduling_info = std::make_unique<ynn::scheduling_info>();
+  scheduling_info->loop_splits = std::move(loop_splits);
+  return scheduling_info;
 }
 
 namespace {
@@ -288,6 +299,11 @@ void ynn_runtime::schedule() {
         // step are not equal and both are required.
         if (split.step_is_required && global_loop.step_is_required &&
             !prove_true(split.step == global_loop.step)) {
+          break;
+        }
+        if (globals.is_reduction_dim(split.var)) {
+          // We don't want to fuse a reduction dimension because it is likely
+          // being broadcasted here.
           break;
         }
         if (prove_true(split.extent == global_loop.extent)) {
