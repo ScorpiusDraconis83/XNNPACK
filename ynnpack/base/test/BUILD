@@ -100,6 +100,8 @@ cc_test(
 cc_test(
     name = "type_test",
     srcs = ["type_test.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
     deps = [
         "//ynnpack/base",
     ] + ynn_test_deps(),
