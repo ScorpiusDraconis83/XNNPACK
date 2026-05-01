@@ -73,6 +73,8 @@ class Type:
         result += "half"
       elif self.type_class == "float" and self.size == 32:
         result += "float"
+      elif self.type_class == "float" and self.size == 64:
+        result += "double"
       elif self.type_class == "bfloat" and self.size == 16:
         result += "bfloat16"
       else:
@@ -129,7 +131,10 @@ fn_ops = []
 def wrap(y):
   result = y
   if isinstance(y, int):
-    result = Constant(Int(32), y)
+    if builtins.abs(y) > 2**31 - 1:
+      result = Constant(Int(64), y)
+    else:
+      result = Constant(Int(32), y)
   elif isinstance(y, float):
     result = Constant(Float(32), y)
   return result

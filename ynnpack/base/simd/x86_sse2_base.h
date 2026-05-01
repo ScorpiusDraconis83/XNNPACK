@@ -141,9 +141,17 @@ struct vec<double, 2> {
 
   vec() = default;
   explicit vec(__m128d v) : v(v) {}
+  vec(vec<double, 1> lo, vec<double, 1> hi) : v(_mm_set_pd(hi.v, lo.v)) {}
   vec(double x) : v(_mm_set1_pd(x)) {}  // NOLINT
 
   __m128d v;
+
+  YNN_ALWAYS_INLINE vec<double, 1> lo() const {
+    return vec<double, 1>{_mm_cvtsd_f64(v)};
+  }
+  YNN_ALWAYS_INLINE vec<double, 1> hi() const {
+    return vec<double, 1>{_mm_cvtsd_f64(_mm_unpackhi_pd(v, v))};
+  }
 };
 
 using f64x2 = vec<double, 2>;

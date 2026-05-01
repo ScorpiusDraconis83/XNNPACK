@@ -30,6 +30,7 @@ using uint32x1_t = uint32_t;
 using float16x1_t = half;
 using bfloat16x1_t = bfloat16;
 using float32x1_t = float;
+using float64x1_t = double;
 
 // Returns true if the type is an integer type.
 bool type_is_integral(ynn_type t);

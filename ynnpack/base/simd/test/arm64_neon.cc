@@ -43,5 +43,10 @@ TEST_FLOOR_LOG2(arm_neon, f64, 2);
 TEST_HORIZONTAL_MIN(arm_neon, f64, 2);
 TEST_HORIZONTAL_MAX(arm_neon, f64, 2);
 
+TEST_CAST(arm_neon, f64, f32x2);
+TEST_CAST(arm_neon, f64, f32x4);
+TEST_CAST(arm_neon, f32, f64x2);
+TEST_CAST(arm_neon, f32, f64x4);
+
 }  // namespace simd
 }  // namespace ynn

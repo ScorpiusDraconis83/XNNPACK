@@ -26,6 +26,8 @@ inline float epsilon(ynn_type type) {
   switch (type) {
     case ynn_type_fp32:
       return type_info<float>::epsilon();
+    case ynn_type_fp64:
+      return type_info<double>::epsilon();
     case ynn_type_fp16:
       return type_info<half>::epsilon();
     case ynn_type_bf16:
@@ -40,24 +42,26 @@ inline float epsilon(ynn_type type) {
 
 struct multiply {
   float operator()(float a, float b, float c) const { return a * b * c; }
+  double operator()(double a, double b, double c) const { return a * b * c; }
   float operator()(int32_t a, float b, float c) const {
     return static_cast<float>(a) * b * c;
   }
 
-  float tolerance(float a, float b, float c, ynn_type type) const {
-    return 0.0f;
+  double tolerance(double a, double b, double c, ynn_type type) const {
+    return 0.0;
   }
 };
 
 struct multiply_add {
   float operator()(float a, float b, float c) const { return a * b + c; }
+  double operator()(double a, double b, double c) const { return a * b + c; }
   int32_t operator()(int32_t a, int32_t b, int32_t c) const {
     return narrow(widen(a) * widen(b) + widen(c));
   }
 
-  float tolerance(float a, float b, float c, ynn_type type) const {
+  double tolerance(double a, double b, double c, ynn_type type) const {
     // This might differ due to using fused multiply-add instructions.
-    return std::max(std::abs(a * b), std::abs(c)) * 2.0f * epsilon(type);
+    return std::max(std::abs(a * b), std::abs(c)) * 2.0 * epsilon(type);
   }
 };
 
@@ -66,9 +70,9 @@ struct subtract_multiply {
     return narrow(widen(a) - widen(b) * widen(c));
   }
 
-  float tolerance(float a, float b, float c, ynn_type type) const {
+  double tolerance(double a, double b, double c, ynn_type type) const {
     // This might differ due to using fused multiply-add instructions.
-    return std::max(std::abs(a), std::abs(b * c)) * 2.0f * epsilon(type);
+    return std::max(std::abs(a), std::abs(b * c)) * 2.0 * epsilon(type);
   }
 };
 
@@ -79,9 +83,12 @@ struct clamp {
   float operator()(float a, float mn, float mx) const {
     return std::min(std::max(a, mn), mx);
   }
+  double operator()(double a, double mn, double mx) const {
+    return std::min(std::max(a, mn), mx);
+  }
 
-  float tolerance(float a, float b, float c, ynn_type type) const {
-    return 0.0f;
+  double tolerance(double a, double b, double c, ynn_type type) const {
+    return 0.0;
   }
 };
 
@@ -90,9 +97,7 @@ struct quantize_int8 {
     return quantize<int8_t>(a, 1.0f / scale, zp);
   }
 
-  float tolerance(float, float, float, ynn_type type) const {
-    return 1.0f;
-  }
+  double tolerance(double, double, double, ynn_type type) const { return 1.0; }
 };
 
 struct quantize_uint8 {
@@ -100,9 +105,7 @@ struct quantize_uint8 {
     return quantize<uint8_t>(a, 1.0f / scale, zp);
   }
 
-  float tolerance(float, float, float, ynn_type type) const {
-    return 1.0f;
-  }
+  double tolerance(double, double, double, ynn_type type) const { return 1.0; }
 };
 
 struct dequantize {
@@ -110,7 +113,7 @@ struct dequantize {
     return (a - zero_point) * scale;
   }
 
-  float tolerance(float a, float b, float c, ynn_type type) const {
+  double tolerance(double a, double b, double c, ynn_type type) const {
     return epsilon(type);
   }
 };
@@ -134,18 +137,18 @@ void check_results(const OpInfo& op, const Tensor<A>& a, const Tensor<B>& b,
           << "i = " << index_to_string(i) << ", a(i) = " << a_i
           << ", b(i) = " << b_i << ", c(i) = " << c_i;
     } else {
-      float expected = op(a_i, b_i, c_i);
+      double expected = op(a_i, b_i, c_i);
       if (expected < type_info<X>::min()) {
-        expected = -type_info<float>::infinity();
+        expected = -type_info<double>::infinity();
       }
       if (expected > type_info<X>::max()) {
-        expected = type_info<float>::infinity();
+        expected = type_info<double>::infinity();
       }
       if (std::isnan(expected)) {
         // Checking the x is NaN could make sense, but it fails in
         // a variety of cases.
       } else {
-        const float tolerance = op.tolerance(a_i, b_i, c_i, type_of<X>());
+        const double tolerance = op.tolerance(a_i, b_i, c_i, type_of<X>());
         ASSERT_NEAR(expected, x(i), tolerance)
             << "i = " << index_to_string(i) << ", a(i) = " << a_i
             << ", b(i) = " << b_i << ", c(i) = " << c_i;

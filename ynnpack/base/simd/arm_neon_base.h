@@ -39,6 +39,18 @@ struct vec<uint8_t, 8> {
 using u8x8 = vec<uint8_t, 8>;
 
 template <>
+struct vec<float, 2> {
+  using value_type = float;
+  static constexpr std::integral_constant<size_t, 2> N = {};
+
+  vec() = default;
+  explicit vec(float32x2_t v) : v(v) {}
+  vec(float x) : v(vdup_n_f32(x)) {}  // NOLINT
+
+  float32x2_t v;
+};
+
+template <>
 struct vec<float, 4> {
   using value_type = float;
   static constexpr std::integral_constant<size_t, 4> N = {};
@@ -46,8 +58,12 @@ struct vec<float, 4> {
   vec() = default;
   explicit vec(float32x4_t v) : v(v) {}
   vec(float x) : v(vdupq_n_f32(x)) {}  // NOLINT
+  vec(vec<float, 2> lo, vec<float, 2> hi) : v(vcombine_f32(lo.v, hi.v)) {}
 
   float32x4_t v;
+
+  vec<float, 2> lo() const { return vec<float, 2>{vget_low_f32(v)}; }
+  vec<float, 2> hi() const { return vec<float, 2>{vget_high_f32(v)}; }
 };
 
 #ifdef YNN_ARCH_ARM64
@@ -176,6 +192,7 @@ struct vec<int8_t, 16> {
   int8x16_t v;
 };
 
+using f32x2 = vec<float, 2>;
 using f32x4 = vec<float, 4>;
 #ifdef YNN_ARCH_ARM64
 using f64x2 = vec<double, 2>;
@@ -252,6 +269,10 @@ YNN_ALWAYS_INLINE f32x4 load_aligned(const float* ptr, decltype(f32x4::N),
                                      f32x4 = {}) {
   return f32x4{vld1q_f32(ptr)};
 }
+YNN_ALWAYS_INLINE f32x2 load_aligned(const float* ptr, decltype(f32x2::N),
+                                     f32x2 = {}) {
+  return f32x2{vld1_f32(ptr)};
+}
 #ifdef YNN_ARCH_ARM64
 YNN_ALWAYS_INLINE f64x2 load_aligned(const double* ptr, decltype(f64x2::N),
                                      f64x2 = {}) {
@@ -295,6 +316,10 @@ YNN_ALWAYS_INLINE u8x8 load_aligned(const uint8_t* ptr, decltype(u8x8::N),
 YNN_ALWAYS_INLINE void store_aligned(float* ptr, f32x4 b,
                                      decltype(f32x4::N) = {}) {
   vst1q_f32(ptr, b.v);
+}
+YNN_ALWAYS_INLINE void store_aligned(float* ptr, f32x2 b,
+                                     decltype(f32x2::N) = {}) {
+  vst1_f32(ptr, b.v);
 }
 #ifdef YNN_ARCH_ARM64
 YNN_ALWAYS_INLINE void store_aligned(double* ptr, f64x2 b,
@@ -347,6 +372,9 @@ YNN_ALWAYS_INLINE void store_aligned(uint8_t* ptr, u8x8 b,
 YNN_ALWAYS_INLINE f32x4 load(const float* ptr, decltype(f32x4::N), f32x4 = {}) {
   return f32x4{vld1q_f32(ptr)};
 }
+YNN_ALWAYS_INLINE f32x2 load(const float* ptr, decltype(f32x2::N), f32x2 = {}) {
+  return f32x2{vld1_f32(ptr)};
+}
 #ifdef YNN_ARCH_ARM64
 YNN_ALWAYS_INLINE f64x2 load(const double* ptr, decltype(f64x2::N),
                              f64x2 = {}) {
@@ -394,6 +422,9 @@ YNN_ALWAYS_INLINE u8x8 load(const uint8_t* ptr, decltype(u8x8::N), u8x8 = {}) {
 
 YNN_ALWAYS_INLINE void store(float* ptr, f32x4 b, decltype(f32x4::N) = {}) {
   vst1q_f32(ptr, b.v);
+}
+YNN_ALWAYS_INLINE void store(float* ptr, f32x2 b, decltype(f32x2::N) = {}) {
+  vst1_f32(ptr, b.v);
 }
 #ifdef YNN_ARCH_ARM64
 YNN_ALWAYS_INLINE void store(double* ptr, f64x2 b, decltype(f64x2::N) = {}) {
@@ -991,6 +1022,10 @@ YNN_ALWAYS_INLINE std::array<vec<T, 4>, 4> transpose(
 }
 
 using f32x8 = vec<float, 8>;
+#ifdef YNN_ARCH_ARM64
+using f64x4 = vec<double, 4>;
+using f64x8 = vec<double, 8>;
+#endif
 using s32x8 = vec<int32_t, 8>;
 using s16x16 = vec<int16_t, 16>;
 using s32x16 = vec<int32_t, 16>;
@@ -1050,6 +1085,15 @@ YNN_ALWAYS_INLINE s32x16 cast(u8x16 b, int32_t) {
 YNN_ALWAYS_INLINE f32x4 cast(s32x4 x, float) {
   return f32x4{vcvtq_f32_s32(x.v)};
 }
+
+#ifdef YNN_ARCH_ARM64
+YNN_ALWAYS_INLINE f64x2 cast(f32x2 a, double) {
+  return f64x2{vcvt_f64_f32(a.v)};
+}
+YNN_ALWAYS_INLINE f32x2 cast(f64x2 a, float) {
+  return f32x2{vcvt_f32_f64(a.v)};
+}
+#endif  // YNN_ARCH_ARM64
 
 YNN_ALWAYS_INLINE s32x4 cast(f32x4 x, int32_t) {
   return s32x4{vcvtq_s32_f32(x.v)};
