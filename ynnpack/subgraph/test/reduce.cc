@@ -53,9 +53,9 @@ template <typename T>
 float Tolerance(ynn_reduce_operator op, size_t k, float max_abs_value) {
   switch (op) {
     case ynn_reduce_sum:
-      return epsilon(type_of<T>()) * k * max_abs_value * 3.0f;
+      return type_info<T>::epsilon() * k * max_abs_value * 3.0f;
     case ynn_reduce_sum_squared:
-      return epsilon(type_of<T>()) * k * max_abs_value * max_abs_value * 6.0f;
+      return type_info<T>::epsilon() * k * max_abs_value * max_abs_value * 6.0f;
     default:
       return 0.0f;
   }

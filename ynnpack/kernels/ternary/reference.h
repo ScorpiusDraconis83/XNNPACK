@@ -11,15 +11,32 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <type_traits>
 
 #include <gtest/gtest.h>
 #include "ynnpack/base/arithmetic.h"
+#include "ynnpack/base/bfloat16.h"
+#include "ynnpack/base/half.h"
 #include "ynnpack/base/test/tensor.h"
 #include "ynnpack/base/type.h"
 #include "ynnpack/include/ynnpack.h"
 
 namespace ynn {
+
+inline float epsilon(ynn_type type) {
+  switch (type) {
+    case ynn_type_fp32:
+      return type_info<float>::epsilon();
+    case ynn_type_fp16:
+      return type_info<half>::epsilon();
+    case ynn_type_bf16:
+      return type_info<bfloat16>::epsilon();
+    case ynn_type_int8:
+    case ynn_type_uint8:
+      return 1.0f;
+    default:
+      return 0.0f;
+  }
+}
 
 struct multiply {
   float operator()(float a, float b, float c) const { return a * b * c; }

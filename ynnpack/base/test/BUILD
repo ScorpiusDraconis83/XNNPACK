@@ -41,7 +41,10 @@ cc_library(
     name = "util",
     testonly = True,
     srcs = ["util.cc"],
-    hdrs = ["util.h"],
+    hdrs = [
+        "tolerance.h",
+        "util.h",
+    ],
     deps = [
         "//ynnpack/base",
         "@com_google_googletest//:gtest",  # no g3

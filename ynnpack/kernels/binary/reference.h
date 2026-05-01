@@ -10,14 +10,13 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
-#include <cstdlib>
-#include <type_traits>
 
 #include <gtest/gtest.h>
 #include "ynnpack/base/arithmetic.h"
 #include "ynnpack/base/base.h"
 #include "ynnpack/base/bfloat16.h"
 #include "ynnpack/base/test/tensor.h"
+#include "ynnpack/base/test/tolerance.h"
 #include "ynnpack/base/type.h"
 #include "ynnpack/include/ynnpack.h"
 
@@ -32,8 +31,8 @@ struct binary_op_info {
   virtual int32_t operator()(int32_t a, int32_t b) const { YNN_UNREACHABLE; }
 
   // Compute the tolerance for error given the reference result and the type.
-  virtual float Tolerance(float x_ref, ynn_type type) const {
-    return (std::abs(x_ref) + 1.0f) * 3.0f * epsilon(type);
+  virtual tolerance_spec tolerance() const {
+    return tolerance_spec{/*relative=*/3.0f, /*absolute=*/1.0f};
   }
 };
 
@@ -119,6 +118,7 @@ void check_results(const OpInfo& op, const Tensor<A>& a, const Tensor<B>& b,
                    const Tensor<X>& x, const quantization_params& = {},
                    const quantization_params& = {},
                    const quantization_params& = {}) {
+  tolerance_spec tol = op.tolerance();
   for (const auto& i : EnumerateIndices(x.extents())) {
     if (is_integral<X>::value) {
       const int32_t expected = op(a(i), b(i));
@@ -136,7 +136,7 @@ void check_results(const OpInfo& op, const Tensor<A>& a, const Tensor<B>& b,
         // Checking the x is NaN could make sense, but it fails in
         // a variety of cases.
       } else {
-        ASSERT_NEAR(expected, x(i), op.Tolerance(expected, type_of<X>()))
+        ASSERT_NEAR(expected, x(i), tol.absolute_error<X>(expected))
             << "i = " << index_to_string(i) << ", a(i) = " << a(i)
             << ", b(i) = " << b(i);
       }

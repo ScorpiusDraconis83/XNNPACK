@@ -7,7 +7,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <type_traits>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -54,9 +53,9 @@ template <typename T>
 float Tolerance(ReduceOp op, size_t k, float max_abs_value) {
   switch (op) {
     case ReduceOp::kSum:
-      return epsilon(type_of<T>()) * k * max_abs_value * 5;
+      return type_info<T>::epsilon() * k * max_abs_value * 5;
     case ReduceOp::kSumSquared:
-      return epsilon(type_of<T>()) * k * max_abs_value * max_abs_value * 10;
+      return type_info<T>::epsilon() * k * max_abs_value * max_abs_value * 10;
     case ReduceOp::kMin:
     case ReduceOp::kMax:
     case ReduceOp::kMinMax:

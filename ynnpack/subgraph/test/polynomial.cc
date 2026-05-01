@@ -103,7 +103,7 @@ void TestPolynomial(A, X) {
           expected = quantize<X>(expected, output_quantization);
           ASSERT_NEAR(expected, output(i), 1);
         } else {
-          const float tolerance = epsilon(type_of<X>()) * max_abs_value *
+          const float tolerance = type_info<X>::epsilon() * max_abs_value *
                                   std::pow(max_abs_value, degree);
           ASSERT_NEAR(expected, output(i), tolerance);
         }
