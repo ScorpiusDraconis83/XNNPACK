@@ -139,6 +139,8 @@ constexpr decltype(auto) SwitchType(ynn_type type, F&& f) {
       return std::forward<F>(f)(bfloat16());
     case ynn_type_fp32:
       return std::forward<F>(f)(float());
+    case ynn_type_fp64:
+      return std::forward<F>(f)(double());
     case ynn_type_int32:
       return std::forward<F>(f)(int32_t());
     default:
@@ -165,6 +167,7 @@ const ynn_type all_real_types[] = {
     ynn_type_fp16,
     ynn_type_bf16,
     ynn_type_fp32,
+    ynn_type_fp64,
 };
 
 const ynn_unary_operator all_integer_ops[] = {

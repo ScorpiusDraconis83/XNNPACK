@@ -48,14 +48,20 @@ template <typename T>
 float dequantize(T x, float scale, float zero_point) {
   return (static_cast<float>(x) - zero_point) * scale;
 }
+inline double dequantize(double x, float scale, float zero_point) {
+  return (x - zero_point) * scale;
+}
 template <typename T>
-float dequantize(T x, const quantization_params& params) {
+auto dequantize(T x, const quantization_params& params) {
   return dequantize(x, params.scale, params.zero_point);
 }
 
 template <typename T>
 T quantize(float x, float inv_scale, float zero_point) {
   return round_float_to_int<T>(x * inv_scale + zero_point);
+}
+inline double quantize(double x, double inv_scale, double zero_point) {
+  return std::nearbyint(x * inv_scale + zero_point);
 }
 template <typename T>
 T quantize(float x, const quantization_params& params) {
@@ -81,8 +87,14 @@ void quantize(const float* in, T* out, size_t n,
 inline float fake_quantize(float x, float inv_scale, float zero_point) {
   return std::nearbyint(x * inv_scale + zero_point);
 }
+inline double fake_quantize(double x, double inv_scale, double zero_point) {
+  return std::nearbyint(x * inv_scale + zero_point);
+}
 inline float fake_quantize(float x, const quantization_params& params) {
   return fake_quantize(x, 1.0f / params.scale, params.zero_point);
+}
+inline double fake_quantize(double x, const quantization_params& params) {
+  return fake_quantize(x, 1.0 / params.scale, params.zero_point);
 }
 
 // These help to implement integer arithmetic without signed integer overflow.

@@ -337,6 +337,8 @@ constexpr decltype(auto) SwitchRealType(ynn_type type, F&& f) {
       return std::forward<F>(f)(bfloat16());
     case ynn_type_fp32:
       return std::forward<F>(f)(float());
+    case ynn_type_fp64:
+      return std::forward<F>(f)(double());
     default:
       YNN_UNREACHABLE;
   }

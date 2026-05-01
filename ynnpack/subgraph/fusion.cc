@@ -72,6 +72,18 @@ struct scalar_arithmetic {
 
 // If `node` is a linear expression of scalar constants, returns
 // `scalar_arithmetic` describing the operation.
+std::optional<float> as_exact_scalar_float(const ynn_value& value) {
+  std::optional<float> f = value.as_scalar_float();
+  if (!f) return std::nullopt;
+  if (value.type == ynn_type_fp64) {
+    double d = value.static_scalar_value<double>();
+    if (static_cast<double>(*f) != d) {
+      return std::nullopt;
+    }
+  }
+  return f;
+}
+
 std::optional<scalar_arithmetic> is_scalar_arithmetic(
     const ynn_subgraph& subgraph, const ynn_node& node) {
   if (is_unary_node(node, ynn_unary_negate)) {
@@ -81,7 +93,7 @@ std::optional<scalar_arithmetic> is_scalar_arithmetic(
       std::get_if<ynn_node::binary_elementwise>(&node.op);
   if (binary == nullptr) return std::nullopt;
 
-  if (const auto b = subgraph.value(node.inputs[1]).as_scalar_float()) {
+  if (const auto b = as_exact_scalar_float(subgraph.value(node.inputs[1]))) {
     switch (binary->op) {
       case ynn_binary_add:
         return scalar_arithmetic{node.inputs[0], 1.0f, *b};
@@ -96,7 +108,7 @@ std::optional<scalar_arithmetic> is_scalar_arithmetic(
     }
   }
 
-  if (const auto a = subgraph.value(node.inputs[0]).as_scalar_float()) {
+  if (const auto a = as_exact_scalar_float(subgraph.value(node.inputs[0]))) {
     switch (binary->op) {
       case ynn_binary_add:
         return scalar_arithmetic{node.inputs[1], 1.0f, *a};

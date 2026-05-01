@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <type_traits>
 
 #include "ynnpack/base/arch.h"
 #include "ynnpack/base/arithmetic.h"
@@ -86,6 +85,8 @@ unary_kernel_fn get_convert_kernel(TIn, TOut) {
 template <typename TIn>
 unary_kernel_fn get_convert_kernel(ynn_type output) {
   switch (output) {
+    case ynn_type_fp64:
+      return get_convert_kernel(TIn(), double());
     case ynn_type_fp32:
       return get_convert_kernel(TIn(), float());
     case ynn_type_fp16:
@@ -106,33 +107,39 @@ unary_kernel_fn get_convert_kernel(ynn_type output) {
 struct abs_op {
   explicit abs_op(const unary_params& = {}) {}
   float operator()(float x) const { return std::abs(x); }
+  double operator()(double x) const { return std::abs(x); }
   int32_t operator()(int32_t x) const { return std::abs(x); }
 };
 
 struct negate_op {
   explicit negate_op(const unary_params& = {}) {}
   float operator()(float x) const { return -x; }
+  double operator()(double x) const { return -x; }
   int32_t operator()(int32_t x) const { return -x; }
 };
 
 struct round_op {
   explicit round_op(const unary_params& = {}) {}
   float operator()(float x) const { return std::nearbyint(x); }
+  double operator()(double x) const { return std::nearbyint(x); }
 };
 
 struct ceil_op {
   explicit ceil_op(const unary_params& = {}) {}
   float operator()(float x) const { return std::ceil(x); }
+  double operator()(double x) const { return std::ceil(x); }
 };
 
 struct floor_op {
   explicit floor_op(const unary_params& = {}) {}
   float operator()(float x) const { return std::floor(x); }
+  double operator()(double x) const { return std::floor(x); }
 };
 
 struct square_op {
   explicit square_op(const unary_params& = {}) {}
   float operator()(float x) const { return x * x; }
+  double operator()(double x) const { return x * x; }
   int32_t operator()(int32_t x) const {
     return static_cast<int32_t>(static_cast<int64_t>(x) *
                                 static_cast<int64_t>(x));
@@ -142,11 +149,13 @@ struct square_op {
 struct square_root_op {
   explicit square_root_op(const unary_params& = {}) {}
   float operator()(float x) const { return std::sqrt(x); }
+  double operator()(double x) const { return std::sqrt(x); }
 };
 
 struct cube_root_op {
   explicit cube_root_op(const unary_params& = {}) {}
   float operator()(float x) const { return std::cbrt(x); }
+  double operator()(double x) const { return std::cbrt(x); }
 };
 
 struct tanh_op {
@@ -156,11 +165,15 @@ struct tanh_op {
   float operator()(float x) const {
     return std::tanh(x) * params.output_multiplier + params.output_offset;
   }
+  double operator()(double x) const {
+    return std::tanh(x) * params.output_multiplier + params.output_offset;
+  }
 };
 
 struct reciprocal_square_root_op {
   explicit reciprocal_square_root_op(const unary_params& = {}) {}
-  float operator()(float x) const { return 1 / std::sqrt(x); }
+  float operator()(float x) const { return 1.0f / std::sqrt(x); }
+  double operator()(double x) const { return 1.0 / std::sqrt(x); }
 };
 
 struct log_op {
@@ -171,11 +184,16 @@ struct log_op {
     return std::log2(x * params.input_multiplier / std::sqrt(2.0f)) *
            params.output_multiplier;
   }
+  double operator()(double x) const {
+    return std::log2(x * params.input_multiplier / std::sqrt(2.0)) *
+           params.output_multiplier;
+  }
 };
 
 struct log1p_op {
   explicit log1p_op(const unary_params& = {}) {}
   float operator()(float x) const { return std::log1p(x); }
+  double operator()(double x) const { return std::log1p(x); }
 };
 
 struct exp_op {
@@ -185,11 +203,15 @@ struct exp_op {
   float operator()(float x) const {
     return std::exp2(params.input_multiplier * x) * params.output_multiplier;
   }
+  double operator()(double x) const {
+    return std::exp2(params.input_multiplier * x) * params.output_multiplier;
+  }
 };
 
 struct expm1_op {
   explicit expm1_op(const unary_params& = {}) {}
   float operator()(float x) const { return std::expm1(x); }
+  double operator()(double x) const { return std::expm1(x); }
 };
 
 struct erf_op {
@@ -200,11 +222,18 @@ struct erf_op {
     return std::erf(params.input_multiplier * x) * params.output_multiplier +
            params.output_offset;
   }
+  double operator()(double x) const {
+    return std::erf(params.input_multiplier * x) * params.output_multiplier +
+           params.output_offset;
+  }
 };
 
 struct sign_op {
   explicit sign_op(const unary_params& = {}) {}
-  float operator()(float x) const { return x < 0 ? -1 : x > 0 ? 1 : 0; }
+  float operator()(float x) const {
+    return x < 0 ? -1.0f : x > 0 ? 1.0f : 0.0f;
+  }
+  double operator()(double x) const { return x < 0 ? -1.0 : x > 0 ? 1.0 : 0.0; }
   int32_t operator()(int32_t x) const { return x < 0 ? -1 : x > 0 ? 1 : 0; }
 };
 
@@ -213,6 +242,9 @@ struct sine_op {
 
   explicit sine_op(const unary_params& params) : params(params.sine) {}
   float operator()(float x) const {
+    return std::sin(x) * params.output_multiplier + params.output_offset;
+  }
+  double operator()(double x) const {
     return std::sin(x) * params.output_multiplier + params.output_offset;
   }
 };
@@ -224,17 +256,24 @@ struct cosine_op {
   float operator()(float x) const {
     return std::cos(x) * params.output_multiplier + params.output_offset;
   }
+  double operator()(double x) const {
+    return std::cos(x) * params.output_multiplier + params.output_offset;
+  }
 };
 
 struct sigmoid_op {
   explicit sigmoid_op(const unary_params& = {}) {}
   float operator()(float x) const { return 1.0f / (1.0f + std::exp(-x)); }
+  double operator()(double x) const { return 1.0 / (1.0 + std::exp(-x)); }
 };
 
 struct hardswish_op {
   explicit hardswish_op(const unary_params& = {}) {}
   float operator()(float x) const {
     return (x * (1.0f / 6.0f)) * std::max(std::min(x + 3.0f, 6.0f), 0.0f);
+  }
+  double operator()(double x) const {
+    return (x * (1.0 / 6.0)) * std::max(std::min(x + 3.0, 6.0), 0.0);
   }
 };
 
@@ -245,60 +284,71 @@ struct poly3_op {
   float operator()(float x) const {
     return ((params.c3 * x + params.c2) * x + params.c1) * x + params.c0;
   }
+  double operator()(double x) const {
+    return ((params.c3 * x + params.c2) * x + params.c1) * x + params.c0;
+  }
 };
+
+template <typename T>
+unary_kernel_fn get_float_unary_reference_kernel(ynn_unary_operator op) {
+  switch (op) {
+    case ynn_unary_abs:
+      return unary_impl<T, T, abs_op>;
+    case ynn_unary_round:
+      return unary_impl<T, T, round_op>;
+    case ynn_unary_ceil:
+      return unary_impl<T, T, ceil_op>;
+    case ynn_unary_exp:
+      return unary_impl<T, T, exp_op>;
+    case ynn_unary_expm1:
+      return unary_impl<T, T, expm1_op>;
+    case ynn_unary_erf:
+      return unary_impl<T, T, erf_op>;
+    case ynn_unary_floor:
+      return unary_impl<T, T, floor_op>;
+    case ynn_unary_log:
+      return unary_impl<T, T, log_op>;
+    case ynn_unary_log1p:
+      return unary_impl<T, T, log1p_op>;
+    case ynn_unary_negate:
+      return unary_impl<T, T, negate_op>;
+    case ynn_unary_square:
+      return unary_impl<T, T, square_op>;
+    case ynn_unary_square_root:
+      return unary_impl<T, T, square_root_op>;
+    case ynn_unary_reciprocal_square_root:
+      return unary_impl<T, T, reciprocal_square_root_op>;
+    case ynn_unary_tanh:
+      return unary_impl<T, T, tanh_op>;
+    case ynn_unary_cube_root:
+      return unary_impl<T, T, cube_root_op>;
+    case ynn_unary_sign:
+      return unary_impl<T, T, sign_op>;
+    case ynn_unary_sine:
+      return unary_impl<T, T, sine_op>;
+    case ynn_unary_cosine:
+      return unary_impl<T, T, cosine_op>;
+    case ynn_unary_sigmoid:
+      return unary_impl<T, T, sigmoid_op>;
+    case ynn_unary_hardswish:
+      return unary_impl<T, T, hardswish_op>;
+    case ynn_unary_poly3:
+      return unary_impl<T, T, poly3_op>;
+    case ynn_unary_convert:
+    default:
+      break;
+  }
+  return nullptr;
+}
 
 }  // namespace
 
 unary_kernel_fn get_unary_reference_kernel(ynn_unary_operator op,
                                            ynn_type type) {
   if (type == ynn_type_fp32) {
-    switch (op) {
-      case ynn_unary_abs:
-        return unary_impl<float, float, abs_op>;
-      case ynn_unary_round:
-        return unary_impl<float, float, round_op>;
-      case ynn_unary_ceil:
-        return unary_impl<float, float, ceil_op>;
-      case ynn_unary_exp:
-        return unary_impl<float, float, exp_op>;
-      case ynn_unary_expm1:
-        return unary_impl<float, float, expm1_op>;
-      case ynn_unary_erf:
-        return unary_impl<float, float, erf_op>;
-      case ynn_unary_floor:
-        return unary_impl<float, float, floor_op>;
-      case ynn_unary_log:
-        return unary_impl<float, float, log_op>;
-      case ynn_unary_log1p:
-        return unary_impl<float, float, log1p_op>;
-      case ynn_unary_negate:
-        return unary_impl<float, float, negate_op>;
-      case ynn_unary_square:
-        return unary_impl<float, float, square_op>;
-      case ynn_unary_square_root:
-        return unary_impl<float, float, square_root_op>;
-      case ynn_unary_reciprocal_square_root:
-        return unary_impl<float, float, reciprocal_square_root_op>;
-      case ynn_unary_tanh:
-        return unary_impl<float, float, tanh_op>;
-      case ynn_unary_cube_root:
-        return unary_impl<float, float, cube_root_op>;
-      case ynn_unary_sign:
-        return unary_impl<float, float, sign_op>;
-      case ynn_unary_sine:
-        return unary_impl<float, float, sine_op>;
-      case ynn_unary_cosine:
-        return unary_impl<float, float, cosine_op>;
-      case ynn_unary_sigmoid:
-        return unary_impl<float, float, sigmoid_op>;
-      case ynn_unary_hardswish:
-        return unary_impl<float, float, hardswish_op>;
-      case ynn_unary_poly3:
-        return unary_impl<float, float, poly3_op>;
-      case ynn_unary_convert:
-      case ynn_unary_invalid:
-        return nullptr;
-    }
+    return get_float_unary_reference_kernel<float>(op);
+  } else if (type == ynn_type_fp64) {
+    return get_float_unary_reference_kernel<double>(op);
   } else if (type == ynn_type_int32) {
     switch (op) {
       case ynn_unary_abs:
@@ -318,6 +368,8 @@ unary_kernel_fn get_unary_reference_kernel(ynn_unary_operator op,
 
 unary_kernel_fn get_convert_reference_kernel(ynn_type a_type, ynn_type x_type) {
   switch (a_type) {
+    case ynn_type_fp64:
+      return get_convert_kernel<double>(x_type);
     case ynn_type_fp32:
       return get_convert_kernel<float>(x_type);
     case ynn_type_fp16:
@@ -356,6 +408,8 @@ unary_kernel_fn get_unary_kernel(ynn_unary_operator op, ynn_type a_type,
 
   if (op == ynn_unary_convert) {
     return get_convert_reference_kernel(a_type, x_type);
+  } else if (a_type == ynn_type_fp64 && x_type == ynn_type_fp64) {
+    return get_unary_reference_kernel(op, x_type);
   } else if (a_type == ynn_type_fp32 && x_type == ynn_type_fp32) {
     return get_unary_reference_kernel(op, x_type);
   } else if (a_type == ynn_type_int32 && x_type == ynn_type_int32) {
