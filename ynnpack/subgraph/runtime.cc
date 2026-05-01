@@ -66,59 +66,42 @@ void ynn_runtime_value::make_buffer(ynn_runtime& runtime) {
   make_buffer(runtime, ynn::type_size_bytes(type));
 }
 
-std::vector<ynn::scheduling_split> ynn_runtime::make_loops(
+std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
     ynn::span<const slinky::var> dims, ynn::span<const slinky::expr> extents,
     const slinky::expr& element_cost,
     ynn::span<const slinky::expr> given_splits,
     ynn::span<const int> loop_order) {
-  int max_threads = threadpool() ? threadpool()->thread_count() : 1;
-  // Enough tasks to have good load balancing.
-  slinky::index_t target_task_count = max_threads > 1 ? max_threads * 2 : 1;
-
   const int rank = dims.size();
   if (rank <= 0) {
     // Nothing to schedule here.
     return {};
   }
 
-  // Area is selected such that tiles fit better into cache, this is a
-  // constant for now, but we could add a more advanced logic based on
-  // hardware info.
-  slinky::expr tile_area =
-      slinky::ceil_div(slinky::expr(32768 * 4), element_cost);
-  std::vector<slinky::expr> splits(rank);
-  slinky::expr tile_area_so_far = 1;
+  std::vector<slinky::expr> splits = make_split_factors(
+      globals, extents, element_cost, given_splits, loop_order);
+
+  return make_schedule(dims, extents, splits, loop_order);
+}
+
+std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
+    ynn::span<const slinky::var> dims, ynn::span<const slinky::expr> extents,
+    ynn::span<const slinky::expr> splits, ynn::span<const int> loop_order) {
+  const int rank = dims.size();
+  if (rank <= 0) {
+    // Nothing to schedule here.
+    return {};
+  }
+
+  int max_threads = threadpool() ? threadpool()->thread_count() : 1;
+  // Enough tasks to have good load balancing.
+  slinky::index_t target_task_count = max_threads > 1 ? max_threads * 2 : 1;
+
+  std::vector<slinky::expr> workers(rank);
+  slinky::expr threads_so_far = 1;
 
   auto get_loop_dim = [&](int index_d) {
     return index_d < loop_order.size() ? loop_order[index_d] : index_d;
   };
-
-  for (int index_d = 0; index_d < rank; ++index_d) {
-    int d = get_loop_dim(index_d);
-    assert(d < extents.size());
-    if (!extents[d].defined()) continue;
-    if (d < given_splits.size()) {
-      splits[d] = given_splits[d];
-    } else {
-      slinky::expr s = slinky::simplify(slinky::max(
-          1, slinky::min(tile_area / tile_area_so_far, extents[d])));
-      s = globals.get(s, "s");
-      splits[d] = s;
-    }
-    if (splits[d].defined() && slinky::prove_true(splits[d] >= extents[d])) {
-      // TODO(b/458542243): We should not need to do this optimization
-      // ourselves.
-      splits[d] = {};
-    }
-    if (splits[d].defined()) {
-      tile_area_so_far = slinky::simplify(tile_area_so_far * splits[d]);
-    } else {
-      tile_area_so_far = slinky::simplify(tile_area_so_far * extents[d]);
-    }
-  }
-
-  std::vector<slinky::expr> workers(rank);
-  slinky::expr threads_so_far = 1;
 
   for (int index_d = rank - 1; index_d >= 0; --index_d) {
     int d = get_loop_dim(index_d);
@@ -146,16 +129,6 @@ std::vector<ynn::scheduling_split> ynn_runtime::make_loops(
     }
   }
 
-  return loop_splits;
-}
-
-std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
-    ynn::span<const slinky::var> dims, ynn::span<const slinky::expr> extents,
-    const slinky::expr& element_cost,
-    ynn::span<const slinky::expr> given_splits,
-    ynn::span<const int> loop_order) {
-  std::vector<ynn::scheduling_split> loop_splits =
-      make_loops(dims, extents, element_cost, given_splits, loop_order);
   auto scheduling_info = std::make_unique<ynn::scheduling_info>();
   scheduling_info->loop_splits = std::move(loop_splits);
   return scheduling_info;
@@ -301,7 +274,7 @@ void ynn_runtime::schedule() {
             !prove_true(split.step == global_loop.step)) {
           break;
         }
-        if (globals.is_reduction_dim(split.var)) {
+        if (!globals.is_pure_dim(split.var)) {
           // We don't want to fuse a reduction dimension because it is likely
           // being broadcasted here.
           break;

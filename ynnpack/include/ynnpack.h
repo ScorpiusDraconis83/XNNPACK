@@ -439,7 +439,7 @@ enum ynn_reduce_operator {
 //   output(...) = b(...)
 //   output(...) = op(output(...), a(...))
 //
-// `XNN_NODE_FLAG_KEEP_DIMS` indicates that a reduction should keep the reduced
+// `YNN_NODE_FLAG_KEEP_DIMS` indicates that a reduction should keep the reduced
 // dimensions in the result (with extent 1).
 //
 // If `output_id` is `YNN_INVALID_VALUE_ID` and `op` is `ynn_reduce_sum` or the
