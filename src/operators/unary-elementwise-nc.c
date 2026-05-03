@@ -66,7 +66,7 @@ static enum xnn_status init_lut_op(
   return xnn_status_success;
 }
 
-static enum xnn_status init_lut_op_with_config(
+static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_lut_op_with_config(
     xnn_operator_t op,
     const struct xnn_unary_elementwise_config* reference_config,
     const union xnn_unary_params* params,

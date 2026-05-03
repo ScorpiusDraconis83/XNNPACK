@@ -2202,7 +2202,7 @@ void xnn_pack_qs8_gemm_gio_w(size_t g, size_t nc, size_t kc, size_t nr,
   } while (--g != 0);
 }
 
-static void pack_weights_and_biases(
+static XNN_NO_SANITIZE_FUNCTION void pack_weights_and_biases(
     uint32_t flags,                                 //
     const struct xnn_gemm_config* gemm_config,      //
     size_t input_channels,                          //
@@ -2367,7 +2367,7 @@ size_t xnn_packed_stride_qb4_weights_and_biases(
          extra_bytes + block_scale_bytes;
 }
 
-void xnn_pack_qb4_weights_and_biases(
+XNN_NO_SANITIZE_FUNCTION void xnn_pack_qb4_weights_and_biases(
     uint32_t flags, const struct xnn_gemm_config* gemm_config,
     size_t input_channels, size_t output_channels, size_t groups,
     size_t block_size, size_t unused_k_stride, const void* accumulator_init,

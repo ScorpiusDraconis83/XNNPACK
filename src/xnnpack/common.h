@@ -319,6 +319,15 @@
 #define XNN_DISABLE_UBSAN
 #endif
 
+// Disable function sanitization here. XNNPACK calls these functions
+// via function pointers with void* contexts, which triggers false positives in
+// the function sanitizer when casting and calling the actual context type.
+#if defined(__clang__) && __has_attribute(no_sanitize)
+#define XNN_NO_SANITIZE_FUNCTION __attribute__((no_sanitize("function")))
+#else
+#define XNN_NO_SANITIZE_FUNCTION
+#endif
+
 #define XNN_OOB_READS \
   XNN_DISABLE_TSAN XNN_DISABLE_MSAN XNN_DISABLE_HWASAN XNN_DISABLE_ASAN
 
