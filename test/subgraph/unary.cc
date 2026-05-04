@@ -452,11 +452,13 @@ INSTANTIATE_TEST_SUITE_P(UnaryTest, Convert,
                                      ValuesIn(all_datatypes), all_ranks)),
                          [](const auto& info) { return info.param.Name(); });
 
+#ifndef XNNPACK_USE_YNNPACK
 INSTANTIATE_TEST_SUITE_P(UnaryTestQint8ToQcint8, Convert,
                          testing::ConvertGenerator<ConvertParam::TupleT>(
                              Combine(ValuesIn({xnn_datatype_qint8}),
                                      ValuesIn({xnn_datatype_qcint8}),
                                      testing::Range(1, XNN_MAX_TENSOR_DIMS))),
                          [](const auto& info) { return info.param.Name(); });
+#endif
 
 }  // namespace xnnpack
