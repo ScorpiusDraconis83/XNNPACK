@@ -937,8 +937,13 @@ bool rewrite_reduce_sum_of_squared(ynn_subgraph& subgraph, ynn_node& node,
   uint32_t x_id = mul_node->inputs[0];
   const ynn_value* x = &subgraph.value(x_id);
 
-  if (x->type != ynn_type_fp32 && x->type != ynn_type_int32) {
-    return false;
+  switch (x->type) {
+    case ynn_type_fp64:
+    case ynn_type_fp32:
+    case ynn_type_int32:
+      break;
+    default:
+      return false;
   }
 
   uint32_t mul_output_id = mul_node->outputs[0];
