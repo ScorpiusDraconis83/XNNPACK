@@ -646,6 +646,7 @@ std::tuple<slinky::expr, slinky::expr> choose_split_factors(
     index_t n = evaluate(op->args[1], ctx);
     index_t k = evaluate(op->args[2], ctx);
     index_t block_n = evaluate(op->args[3], ctx);
+    assert(block_n > 0);
 
     // If k gets big, we're going to tile k anyways. It could be faster to
     // parallelize more finely, but it will waste CPU cycles due to more memory
