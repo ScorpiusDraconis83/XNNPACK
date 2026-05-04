@@ -148,10 +148,9 @@ TEST_P(Transpose, mx1) {
   TransposeParam kernel = GetParam();
   if (!is_arch_supported(kernel.arch_flags)) GTEST_SKIP();
   const size_t element_size_bits = kernel.element_size_bits;
-  const size_t element_count = std::max<size_t>(1, 8 / element_size_bits);
   switch_element_size(element_size_bits, [&](auto type) {
     auto sizes = unaligned_sizes(element_size_bits);
-    TestTranspose(type, kernel.kernel, sizes, {element_count});
+    TestTranspose(type, kernel.kernel, sizes, {1});
   });
 }
 

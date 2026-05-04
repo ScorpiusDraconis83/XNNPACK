@@ -54,13 +54,6 @@ inline bool operator<(const axes_set& a, const axes_set& b) {
   return a.to_ulong() < b.to_ulong();
 }
 
-// Define a transpose node, optionally using a slinky copy that may alias even
-// if dimension 0 is not stride 1 in the result.
-ynn_status define_static_transpose(ynn_subgraph_t subgraph,
-                                   std::vector<int32_t> permutation,
-                                   uint32_t input_id, uint32_t* output_id,
-                                   bool alias = false);
-
 // Validation helpers for public APIs.
 ynn_status validate_subgraph(const char* node, ynn_subgraph_t subgraph);
 ynn_status validate_rank(const char* node, const char* rank_of, size_t rank);

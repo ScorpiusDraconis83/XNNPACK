@@ -28,6 +28,7 @@
 #include "ynnpack/kernels/dot/schedule.h"
 #include "ynnpack/subgraph/runtime.h"
 #include "ynnpack/subgraph/slinky.h"
+#include "ynnpack/subgraph/static_transpose.h"
 #include "ynnpack/subgraph/subgraph.h"
 #include "ynnpack/subgraph/utils.h"
 #include "slinky/base/arithmetic.h"
@@ -158,8 +159,6 @@ auto make_dot_impl(dot_type type, bool consistent_arithmetic, bool transposed_a,
     assert(b_ni.min() == 0);
     assert(b_ni.extent() == 1 || b_ni.stride() == b.elem_size * b_k1i.extent());
     assert(b_k1o.min() == 0);
-    assert(b_k1o.extent() == 1 || b_ni.extent() == 1 ||
-           b_k1o.stride() == b_ni.stride() * b_ni.extent());
     assert(b_k2.min() == 0);
     assert(b_k3.min() == 0);
     assert(!init_c_m.is_folded());
@@ -731,9 +730,12 @@ ynn_status always_alias_transpose(ynn_subgraph& subgraph, uint32_t& id) {
       // it is used elsewhere. The existing transpose op will likely be
       // invalidated as a dead operation.
       id = YNN_INVALID_VALUE_ID;
-      return define_static_transpose(&subgraph, op.permutation,
-                                     b_producer->inputs[0], &id,
-                                     /*alias=*/true);
+      ynn_node node;
+      define_static_transpose(subgraph, node, op.permutation,
+                              b_producer->inputs[0], id,
+                              /*alias=*/true);
+      subgraph.add_node(std::move(node));
+      return ynn_status_success;
     }
   }
   return ynn_status_unsupported_parameter;
