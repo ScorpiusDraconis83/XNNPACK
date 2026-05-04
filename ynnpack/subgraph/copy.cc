@@ -205,7 +205,8 @@ void define_copy(ynn_subgraph& subgraph, ynn_node& node, uint32_t input_id,
 
     output.make_buffer(runtime, input.buffer->elem_size());
     std::vector<slinky::var> dims = runtime.globals.make_dims(output.rank());
-    slinky::box_expr bounds = make_elementwise_bounds(dims, input.extents);
+    slinky::box_expr bounds =
+        make_elementwise_bounds(dims, input.physical_extents());
     auto func = slinky::func::make_copy({input.buffer, std::move(bounds)},
                                         {output.buffer, std::move(dims)});
     runtime.funcs.push_back(std::move(func));
@@ -318,8 +319,8 @@ ynn_status ynn_define_static_reshape(ynn_subgraph_t subgraph, size_t rank,
     ynn_runtime_value& output = runtime.value(node.outputs[0]);
 
     output.make_buffer(runtime, input.buffer->elem_size());
-    auto func = make_reshape(runtime, input.buffer, input.extents,
-                             output.buffer, output.extents);
+    auto func = make_reshape(runtime, input.buffer, input.physical_extents(),
+                             output.buffer, output.physical_extents());
     runtime.funcs.push_back(std::move(func));
     return ynn_status_success;
   };
@@ -399,8 +400,8 @@ ynn_status ynn_define_static_broadcast(ynn_subgraph_t subgraph, size_t rank,
     ynn_runtime_value& output = runtime.value(node.outputs[0]);
 
     std::vector<slinky::var> dims = runtime.globals.make_dims(output.rank());
-    slinky::box_expr bounds =
-        make_broadcast_bounds(dims, input.extents, output.extents);
+    slinky::box_expr bounds = make_broadcast_bounds(
+        dims, input.physical_extents(), output.physical_extents());
 
     output.make_buffer(runtime, input.buffer->elem_size());
     auto func = slinky::func::make_copy({input.buffer, std::move(bounds)},
@@ -500,8 +501,8 @@ ynn_status ynn_define_fuse_dim(ynn_subgraph_t subgraph, int32_t axis,
     ynn_runtime_value& output = runtime.value(node.outputs[0]);
 
     output.make_buffer(runtime, input.buffer->elem_size());
-    auto func = make_reshape(runtime, input.buffer, input.extents,
-                             output.buffer, output.extents);
+    auto func = make_reshape(runtime, input.buffer, input.physical_extents(),
+                             output.buffer, output.physical_extents());
     runtime.funcs.push_back(std::move(func));
     return ynn_status_success;
   };
@@ -563,8 +564,8 @@ ynn_status ynn_define_split_dim(ynn_subgraph_t subgraph, int32_t axis,
 
     output.make_buffer(runtime, input.buffer->elem_size());
 
-    auto func = make_reshape(runtime, input.buffer, input.extents,
-                             output.buffer, output.extents);
+    auto func = make_reshape(runtime, input.buffer, input.physical_extents(),
+                             output.buffer, output.physical_extents());
     runtime.funcs.push_back(std::move(func));
     return ynn_status_success;
   };
@@ -615,8 +616,8 @@ ynn_status ynn_define_fuse_dims(ynn_subgraph_t subgraph, size_t num_axes,
     ynn_runtime_value& output = runtime.value(node.outputs[0]);
 
     output.make_buffer(runtime, input.buffer->elem_size());
-    auto func = make_reshape(runtime, input.buffer, input.extents,
-                             output.buffer, output.extents);
+    auto func = make_reshape(runtime, input.buffer, input.physical_extents(),
+                             output.buffer, output.physical_extents());
     runtime.funcs.push_back(std::move(func));
     return ynn_status_success;
   };
@@ -675,8 +676,8 @@ ynn_status ynn_define_split_dims(ynn_subgraph_t subgraph, size_t num_axes,
     ynn_runtime_value& output = runtime.value(node.outputs[0]);
 
     output.make_buffer(runtime, input.buffer->elem_size());
-    auto func = make_reshape(runtime, input.buffer, input.extents,
-                             output.buffer, output.extents);
+    auto func = make_reshape(runtime, input.buffer, input.physical_extents(),
+                             output.buffer, output.physical_extents());
     runtime.funcs.push_back(std::move(func));
     return ynn_status_success;
   };

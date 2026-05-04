@@ -461,7 +461,7 @@ void define_reduce(ynn_subgraph& subgraph, ynn_node& node,
     }
 
     slinky::box_expr c_bounds =
-        make_elementwise_bounds(output_dims, input_c.extents);
+        make_elementwise_bounds(output_dims, input_c.physical_extents());
 
     slinky::call_stmt::attributes attrs;
     attrs.name = node.to_string();
@@ -471,7 +471,7 @@ void define_reduce(ynn_subgraph& subgraph, ynn_node& node,
       attrs.allow_in_place = (1 << 1);
     }
 
-    auto sched = runtime.make_schedule(all_dims, input_a.extents,
+    auto sched = runtime.make_schedule(all_dims, input_a.physical_extents(),
                                        input_a.buffer->elem_size());
 
     auto func = slinky::func::make(

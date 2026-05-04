@@ -188,10 +188,10 @@ ynn_status ynn_value::set_external_shape(size_t rank, const size_t* dims) {
 
   for (int i = 0; i < rank; ++i) {
     auto extent = slinky::as_constant(extents[rank - 1 - i]);
-    if (extent && *extent != physical_dims[i]) {
+    if (extent && *extent != dims[i]) {
       YNN_LOG_ERROR() << "value " << id << " has fixed shape " << *extent
                       << " in dimension " << i << " and cannot be reshaped to "
-                      << physical_dims[i];
+                      << dims[i];
       return ynn_status_invalid_parameter;
     }
   }
@@ -431,25 +431,14 @@ void ynn_subgraph::infer_elementwise_shape(ynn_node& node, int input_idx,
     // This input is a broadcast, we don't learn anything from it.
     return;
   }
-  if (input_dim == 0) {
-    const int input_type_element_count = ynn::type_element_count(input.type);
-    if (input_type_element_count != 1) input_i *= input_type_element_count;
-  }
   ynn_value& output = value(output_id);
   assert(output_dim < output.extents.size());
   slinky::expr& output_i = output.extents[output_dim];
   if (output_i.defined()) {
     // If we already have an extent here, it must match the new extent.
-    slinky::expr logical_output_i = output_i;
-    int output_type_element_count = 1;
-    if (output_dim == 0) {
-      output_type_element_count = ynn::type_element_count(output.type);
-      if (output_type_element_count != 1)
-        logical_output_i *= output_type_element_count;
-    }
     node.checks.push_back(ynn_node::check{
-        logical_output_i == input_i,
-        {"dimension ", output_dim, " (", logical_output_i, ") of ",
+        output_i == input_i,
+        {"dimension ", output_dim, " (", output_i, ") of ",
          ynn_node::output_idx{output_idx}, " does not match dimension ",
          input_dim, " (", input_i, ") of ", ynn_node::input_idx{input_idx}},
     });
@@ -458,11 +447,6 @@ void ynn_subgraph::infer_elementwise_shape(ynn_node& node, int input_idx,
     // We don't have an extent, or it wasn't constant. Maybe the new extent is
     // constant?
     output_i = input_i;
-    int output_type_element_count = 1;
-    if (output_dim == 0) {
-      output_type_element_count = ynn::type_element_count(output.type);
-    }
-    if (output_type_element_count != 1) output_i /= output_type_element_count;
   }
 }
 

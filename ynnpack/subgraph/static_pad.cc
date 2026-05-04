@@ -85,7 +85,7 @@ ynn_status ynn_define_static_pad(ynn_subgraph_t subgraph, size_t num_axes,
     output.make_buffer(runtime, input.buffer->elem_size());
 
     slinky::func::input func_input{
-        input.buffer, make_elementwise_bounds(dims, input.extents)};
+        input.buffer, make_elementwise_bounds(dims, input.physical_extents())};
     func_input.input_crop.resize(rank);
     for (const ynn_node::static_pad::padding& p : op.paddings) {
       func_input.bounds[p.axis] -= p.pre_padding;
@@ -99,7 +99,7 @@ ynn_status ynn_define_static_pad(ynn_subgraph_t subgraph, size_t num_axes,
       const ynn_runtime_value& padding_value = runtime.value(node.inputs[1]);
       slinky::func::input padding{
           padding_value.buffer,
-          make_elementwise_bounds(dims, padding_value.extents)};
+          make_elementwise_bounds(dims, padding_value.physical_extents())};
       for (const ynn_node::static_pad::padding& p : op.paddings) {
         padding.bounds[p.axis] -= p.pre_padding;
       }

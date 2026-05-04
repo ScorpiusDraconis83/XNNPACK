@@ -146,20 +146,31 @@ struct ynn_value {
 
   std::string name() const;
 
-  // Get the extent of a dimension, or 1 if it is implicitly broadcasted.
+  // Get the logical extent of a dimension, or 1 if it is implicitly
+  // broadcasted.
   slinky::expr extent(size_t i) const {
     return i < extents.size() && extents[i].defined() ? extents[i] : 1;
   }
 
-  slinky::expr logical_extent(size_t i) const {
-    slinky::expr e = extent(i);
-    if (i == 0) {
-      const int element_count = ynn::type_element_count(type);
-      if (element_count != 1) {
-        e *= element_count;
+  slinky::expr physical_extent(size_t i) const {
+    if (i == 0 && i < extents.size()) {
+      int elem_count = ynn::type_element_count(type);
+      if (elem_count != 1) {
+        return slinky::ceil_div<slinky::expr>(extent(0), elem_count);
       }
     }
-    return e;
+
+    return extent(i);
+  }
+
+  std::vector<slinky::expr> physical_extents() const {
+    std::vector<slinky::expr> phys = extents;
+    if (!phys.empty()) {
+      if (phys[0].defined() || ynn::type_element_count(type) != 1) {
+        phys[0] = physical_extent(0);
+      }
+    }
+    return phys;
   }
 
   // Asserting that the value is reshapable to a static scalar value of type T,

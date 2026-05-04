@@ -129,19 +129,13 @@ void define_static_transpose(ynn_subgraph& subgraph, ynn_node& node,
     slinky::expr input_extent = permutation[d] < input.rank()
                                     ? input.extents[permutation[d]]
                                     : slinky::expr{};
-    if (input_extent.defined() && permutation[d] == 0 && elem_count != 1) {
-      // The extents are physical shapes, we need to convert to logical shapes
-      // when we transpose the dimensions.
-      input_extent *= elem_count;
-    }
     if (input_extent.defined()) {
       first_non_trivial_dim = std::min(first_non_trivial_dim, d);
     }
     output.extents[d] = input_extent;
   }
   if (elem_count != 1 && output.rank() > 0 && output.extent(0).defined()) {
-    // And convert back to a physical shape after converting to a logical
-    // shape above. This could fail if the user transposes a dimension with an
+    // This could fail if the user transposes a dimension with an
     // extent that is not aligned to `elem_count`.
     node.checks.push_back(ynn_node::check{
         output.extents[0] % elem_count == 0,
@@ -149,7 +143,6 @@ void define_static_transpose(ynn_subgraph& subgraph, ynn_node& node,
          ") of ", ynn_node::output_idx{0},
          " is not aligned to an instance of type ", to_string(output.type)},
     });
-    output.extents[0] /= elem_count;
   }
 
   // We can alias if we aren't rearranging the stride 1 dimension from the

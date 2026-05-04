@@ -94,20 +94,20 @@ void define_static_slice(ynn_subgraph& subgraph, ynn_node& node,
     const int rank = input.rank();
     std::vector<slinky::var> dims = runtime.globals.make_dims(rank);
     slinky::func::input func_input{
-        input.buffer, make_elementwise_bounds(dims, input.extents)};
+        input.buffer, make_elementwise_bounds(dims, input.physical_extents())};
     if (!op.slice_dims) {
       func_input.output_crop.resize(rank);
     }
     for (const slice_info& slice : op.slices) {
       const int d = slice.axis;
-      auto begin_end = calc_begin_end(slice, input.extents[d]);
+      auto begin_end = calc_begin_end(slice, input.physical_extent(d));
       if (op.slice_dims) {
         dims.erase(dims.begin() + d);
         func_input.bounds[d] = slinky::point(begin_end.first);
       } else {
         const slinky::expr& begin = begin_end.first;
         func_input.bounds[d] = func_input.bounds[d] + begin;
-        func_input.output_crop[d] = all_bounds(output.extents[d]);
+        func_input.output_crop[d] = all_bounds(output.physical_extent(d));
       }
     }
     auto func =

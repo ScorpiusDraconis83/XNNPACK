@@ -451,10 +451,11 @@ auto make_reshape_impl(ynn_runtime* runtime) {
       if (i.is_external_output()) {
         assert(i.data);
         assert(i.data->rank == i.rank());
+        std::vector<slinky::expr> phys_extents = i.physical_extents();
         for (size_t d = 0; d < i.rank(); ++d) {
-          if (i.extents[d].defined()) {
-            i.data->mutable_dim(d).set_min_extent(
-                0, evaluate(i.extents[d], ctx));
+          slinky::expr extent_d = i.physical_extent(d);
+          if (extent_d.defined()) {
+            i.data->mutable_dim(d).set_min_extent(0, evaluate(extent_d, ctx));
           } else {
             i.data->mutable_dim(d).set_min_extent(0, 1);
           }
@@ -536,9 +537,10 @@ ynn_runtime::ynn_runtime(ynn::ref_count<const ynn_subgraph> subgraph,
       value.make_buffer(*this);
 
       for (size_t d = 0; d < value.extents.size(); ++d) {
-        if (!value.extents[d].defined()) {
+        slinky::expr extent_d = i.physical_extent(d);
+        if (!extent_d.defined()) {
           value.buffer->dim(d).bounds = slinky::point(0);
-        } else if (const auto v = as_constant(value.extents[d])) {
+        } else if (const auto v = as_constant(extent_d)) {
           value.buffer->dim(d).bounds = slinky::range(0, *v);
         }
       }
