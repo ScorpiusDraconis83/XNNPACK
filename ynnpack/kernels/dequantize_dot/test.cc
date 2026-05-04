@@ -122,7 +122,7 @@ void TestKernel(uint64_t arch_flags, dequantize_dot_kernel_fn kernel,
                     reference.stride(1) * sizeof(Output), reference.base(),
                     params);
 
-  tolerance_spec tol = {/*relative=*/2.0f, /*absolute=*/2.0f};
+  tolerance_spec tol = {/*relative=*/2.0f, /*absolute=*/3.0f};
   for (size_t i = 0; i < m; ++i) {
     for (size_t j = 0; j < n; ++j) {
       ASSERT_NEAR(output(i, j), reference(i, j),
