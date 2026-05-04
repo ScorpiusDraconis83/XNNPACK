@@ -89,7 +89,7 @@ static XNN_INLINE xnn_simd_f32_t xnn_fnmadd_f32(xnn_simd_f32_t a,
 #if __HVX_ARCH__ >= 81
   return Q6_Vsf_vsub_VsfVsf(c, Q6_Vsf_vmpy_VsfVsf(a, b));
 #else
-  return Q6_Vsf_equals_Vqf32(Q6_Vqf32_vadd_Vqf32Vsf(Q6_Vqf32_vsub_Vqf32Vqf32(Q6_V_vzero(), Q6_Vqf32_vmpy_VsfVsf(a, b)), c));
+  return Q6_Vsf_equals_Vqf32(Q6_Vqf32_vadd_Vqf32Vsf(Q6_Vqf32_vmpy_VsfVsf(Q6_V_vxor_VV(a, Q6_V_vsplat_R(0x80000000)), b), c));
 #endif
 }
 
