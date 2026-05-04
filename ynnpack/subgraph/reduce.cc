@@ -343,10 +343,6 @@ void define_reduce(ynn_subgraph& subgraph, ynn_node& node,
 
   ynn_value& output = subgraph.value(*output_id);
 
-  // Get the reduce kernel we are going to use.
-  unary_reduce_kernel_fn kernel = get_reduce_kernel(op, a.type, output.type);
-  assert(kernel);
-
   assert(split_factors.size() <= a.extents.size());
   split_factors.resize(a.extents.size());
 
@@ -356,8 +352,8 @@ void define_reduce(ynn_subgraph& subgraph, ynn_node& node,
     if (k_dims[i]) {
       if (keep_dims) {
         if (split_factors[i].defined()) {
-          output.extents[i] =
-              slinky::ceil_div(max(1, output.extents[i]), split_factors[i]);
+          output.extents[i] = slinky::simplify(
+              slinky::ceil_div(max(1, output.extents[i]), split_factors[i]));
         } else {
           output.extents[i] = {};
         }
@@ -389,11 +385,15 @@ void define_reduce(ynn_subgraph& subgraph, ynn_node& node,
   node.outputs = {*output_id};
   node.op = ynn_node::reduce{k_dims, op, keep_dims};
 
-  node.create = [kernel, split_factors](const ynn_node& node,
-                                        ynn_runtime& runtime) {
+  node.create = [split_factors](const ynn_node& node, ynn_runtime& runtime) {
     const ynn_node::reduce& op = std::get<ynn_node::reduce>(node.op);
     const ynn_runtime_value& input_a = runtime.value(node.inputs[0]);
     ynn_runtime_value& output = runtime.value(node.outputs[0]);
+
+    // Get the reduce kernel we are going to use.
+    unary_reduce_kernel_fn kernel =
+        get_reduce_kernel(op.op, input_a.type, output.type);
+    assert(kernel);
 
     auto identity_buffer = slinky::buffer_expr::make_constant(
         runtime.globals.symbols, "identity",

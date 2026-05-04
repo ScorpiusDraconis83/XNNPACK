@@ -26,7 +26,6 @@
 #include "ynnpack/subgraph/elementwise.h"
 #include "ynnpack/subgraph/fusion_lut.h"
 #include "ynnpack/subgraph/fusion_types.h"
-#include "ynnpack/subgraph/reduce.h"
 #include "ynnpack/subgraph/static_slice.h"
 #include "ynnpack/subgraph/stencil_copy.h"
 #include "ynnpack/subgraph/subgraph.h"
@@ -924,7 +923,7 @@ bool rewrite_expand_dims_reduce(ynn_subgraph& subgraph, ynn_node& node,
 //   ynn_reduce_sum(int32 * int32) -> ynn_reduce_sum_squared(int32)
 bool rewrite_reduce_sum_of_squared(ynn_subgraph& subgraph, ynn_node& node,
                                    subgraph_analysis& analysis) {
-  const ynn_node::reduce* reduce_op = std::get_if<ynn_node::reduce>(&node.op);
+  ynn_node::reduce* reduce_op = std::get_if<ynn_node::reduce>(&node.op);
   if (reduce_op == nullptr || reduce_op->op != ynn_reduce_sum) {
     return false;
   }
@@ -965,9 +964,7 @@ bool rewrite_reduce_sum_of_squared(ynn_subgraph& subgraph, ynn_node& node,
   }
 
   YNN_LOG_DEBUG() << "Rewriting reduce_sum(x*x) to reduce_sum_squared(x)";
-  ynn::define_reduce(subgraph, node, ynn_reduce_sum_squared, reduce_op->k_dims,
-                     node.inputs[0], node.inputs[1], &node.outputs[0],
-                     reduce_op->keep_dims);
+  reduce_op->op = ynn_reduce_sum_squared;
 
   return true;
 }
@@ -1014,8 +1011,7 @@ bool rewrite_reduce_sum_convert(ynn_subgraph& subgraph, ynn_node& node,
   YNN_LOG_DEBUG() << "Rewriting reduce(" << to_string(reduce_op->op)
                   << ", convert(x)) to reduce(" << to_string(reduce_op->op)
                   << ", x)";
-  ynn::define_reduce(subgraph, node, reduce_op->op, reduce_op->k_dims, x.id,
-                     node.inputs[1], &node.outputs[0], reduce_op->keep_dims);
+  node.inputs[0] = x.id;
   return true;
 }
 
@@ -1461,8 +1457,9 @@ bool rewrite_reduce_binary_identity(ynn_subgraph& subgraph, ynn_node& node,
     uint32_t y_id = node.inputs[1 - i];
     uint32_t output_id = node.outputs[0];
 
-    ynn::define_reduce(subgraph, node, reduce->op, reduce->k_dims, x_id, y_id,
-                       &output_id, reduce->keep_dims);
+    node = std::move(*producer);
+    node.inputs = {x_id, y_id};
+    node.outputs[0] = output_id;
     producer->invalidate();
     return true;
   }
