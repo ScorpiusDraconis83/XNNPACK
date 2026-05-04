@@ -407,7 +407,7 @@ void xnn_init_qs8_qc8w_scale_fp32_params(
   for (size_t tile_start = 0; tile_start < channels; tile_start += channels_tile) {
     const size_t tile_size = min(channels - tile_start, channels_tile);
     for (size_t tile_offset = 0; tile_offset < tile_size; tile_offset++) {
-      unaligned_indexed_store_f32(packed_w, tile_offset, scale[tile_start + tile_offset]);
+      unaligned_indexed_store_f32(packed_w, tile_offset, unaligned_indexed_load_f32(scale, tile_start + tile_offset));
     }
     packed_w = (void*) ((uintptr_t) packed_w + stride);
   }
