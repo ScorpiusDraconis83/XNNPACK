@@ -26,7 +26,9 @@
 #include "ynnpack/subgraph/elementwise.h"
 #include "ynnpack/subgraph/fusion_lut.h"
 #include "ynnpack/subgraph/fusion_types.h"
+#include "ynnpack/subgraph/reduce.h"
 #include "ynnpack/subgraph/static_slice.h"
+#include "ynnpack/subgraph/static_transpose.h"
 #include "ynnpack/subgraph/stencil_copy.h"
 #include "ynnpack/subgraph/subgraph.h"
 #include "slinky/builder/simplify.h"
@@ -1471,6 +1473,90 @@ bool rewrite_reduce_binary_identity(ynn_subgraph& subgraph, ynn_node& node,
   return false;
 }
 
+bool rewrite_reduce_static_transpose(ynn_subgraph& subgraph, ynn_node& node,
+                                     subgraph_analysis& analysis) {
+  const ynn_node::reduce* reduce_op = std::get_if<ynn_node::reduce>(&node.op);
+  if (!reduce_op) return false;
+
+  ynn_node* producer = analysis.producer_of(node.inputs[0]);
+  if (!producer) return false;
+
+  ynn_node* transpose = producer;
+  const ynn_node::static_transpose* transpose_op =
+      std::get_if<ynn_node::static_transpose>(&transpose->op);
+  if (!transpose_op) return false;
+
+  if (analysis.consumers[transpose->outputs[0]].size() != 1 ||
+      subgraph.value(transpose->outputs[0]).is_external_output()) {
+    return false;
+  }
+
+  // We have reduce(static_transpose(x, P), R). We can rewrite this to
+  // static_transpose(reduce(x, R'), P').
+  uint32_t x_id = transpose->inputs[0];
+  uint32_t init_id = node.inputs[1];
+  uint32_t y_id = node.outputs[0];
+
+  ynn::axes_set new_axes;
+  for (size_t d = 0; d < transpose_op->permutation.size(); ++d) {
+    if (reduce_op->k_dims[d]) {
+      new_axes.set(transpose_op->permutation[d]);
+    }
+  }
+
+  std::vector<int32_t> new_perm;
+  if (reduce_op->keep_dims) {
+    new_perm = transpose_op->permutation;
+  } else {
+    std::vector<int> num_reduced_before(new_axes.size() + 1, 0);
+    for (size_t i = 0; i < new_axes.size(); ++i) {
+      num_reduced_before[i + 1] =
+          num_reduced_before[i] + (new_axes.test(i) ? 1 : 0);
+    }
+    for (size_t d = 0; d < transpose_op->permutation.size(); ++d) {
+      if (!reduce_op->k_dims[d]) {
+        new_perm.push_back(transpose_op->permutation[d] -
+                           num_reduced_before[transpose_op->permutation[d]]);
+      }
+    }
+  }
+
+  // Save properties before clearing
+  ynn_reduce_operator op = reduce_op->op;
+  bool keep_dims = reduce_op->keep_dims;
+  bool alias = transpose_op->alias;
+
+  bool is_identity = true;
+  for (size_t i = 0; i < new_perm.size(); ++i) {
+    if (new_perm[i] != i) {
+      is_identity = false;
+      break;
+    }
+  }
+
+  if (is_identity) {
+    transpose->invalidate();
+    node.checks.clear();
+    ynn::define_reduce(subgraph, node, op, new_axes, x_id, init_id, &y_id,
+                       keep_dims);
+  } else {
+    // Clear checks on the old nodes to avoid runtime failure
+    transpose->checks.clear();
+    node.checks.clear();
+
+    // Redefine transpose node as reduce node
+    uint32_t r_id = YNN_INVALID_VALUE_ID;
+    ynn::define_reduce(subgraph, *transpose, op, new_axes, x_id, init_id, &r_id,
+                       keep_dims);
+
+    // Redefine the old reduce node as a transpose node
+    ynn::define_static_transpose(subgraph, node, std::move(new_perm), r_id,
+                                 y_id, alias);
+  }
+
+  return true;
+}
+
 }  // namespace
 
 }  // namespace ynn
@@ -1505,13 +1591,16 @@ ynn_status ynn_subgraph::fusion() {
                                                               analysis) ||
                 ynn::rewrite_transpose_stencil_copy(*this, node, analysis) ||
                 ynn::rewrite_reduce_sum_of_squared(*this, node, analysis) ||
-                ynn::rewrite_reduce_sum_convert(*this, node, analysis);
+                ynn::rewrite_reduce_sum_convert(*this, node, analysis) ||
+                ynn::rewrite_reduce_static_transpose(*this, node, analysis);
     }
+    if (changed) invalidate_dead_values();
   } while (changed);
 
   do {
     subgraph_analysis analysis(*this);
     changed = ynn::rewrite_subgraph_for_unary_lut(*this, analysis);
+    if (changed) invalidate_dead_values();
   } while (changed);
 
   do {
@@ -1523,6 +1612,7 @@ ynn_status ynn_subgraph::fusion() {
       changed = changed || ynn::fuse_converts(*this, node, analysis) ||
                 ynn::fuse_quantize(*this, node, analysis);
     }
+    if (changed) invalidate_dead_values();
   } while (changed);
 
   return ynn_status_success;

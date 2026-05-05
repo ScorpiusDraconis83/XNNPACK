@@ -643,4 +643,80 @@ TEST(fusion, reduce_sum_add_of_reduce) {
   EXPECT_THAT(subgraph, HasValidNodeCount(3));
 }
 
+TEST(fusion, reduce_static_transpose) {
+  // reduce(static_transpose(x)) -> static_transpose(reduce(x))
+  const uint32_t x_id = 0;
+  uint32_t transposed_id = 1;
+  const uint32_t y_id = 2;
+  SubgraphBuilder builder(3);
+
+  builder.AddInput(ynn_type_fp32, 3, x_id)
+      .AddOutput(ynn_type_fp32, 2, y_id)
+      .AddTensor(ynn_type_fp32, 3, transposed_id);
+
+  // Transpose (2, 0, 1). So dimension 0 -> 2, 1 -> 0, 2 -> 1.
+  std::vector<int32_t> perm = {2, 0, 1};
+  builder.AddTranspose(perm, x_id, transposed_id)
+      .AddReduce(ynn_reduce_sum, {1}, transposed_id, YNN_INVALID_VALUE_ID, y_id,
+                 /*flags=*/0);
+
+  ynn_subgraph& subgraph = *builder.GetSubgraph();
+  subgraph.fusion();
+  subgraph.invalidate_dead_values();
+
+  ASSERT_THAT(subgraph, HasValidNodeCount(2));
+
+  const ynn_node& trans_node = ProducerOf(y_id, subgraph);
+  EXPECT_TRUE(
+      std::holds_alternative<ynn_node::static_transpose>(trans_node.op));
+  const uint32_t r_id = trans_node.inputs[0];
+
+  const ynn_node& reduce_node = ProducerOf(r_id, subgraph);
+  EXPECT_THAT(reduce_node, AllOf(IsReduce(ynn_reduce_sum),
+                                 InputsAre(x_id, YNN_INVALID_VALUE_ID)));
+
+  const auto& reduce_op = std::get<ynn_node::reduce>(reduce_node.op);
+  // Original user reduce axis is 1 -> Slinky axis 1. (k_dims[1] = true).
+  // Transpose permutation is {2, 0, 1}, which translates to slinky permutation
+  // {1, 2, 0}. Mapped axis = perm[1] = 2.
+  EXPECT_EQ(reduce_op.k_dims, 0b100);
+}
+
+TEST(fusion, reduce_static_transpose_identity) {
+  // reduce(static_transpose(x)) -> reduce(x) where the resulting transpose is
+  // an identity.
+  const uint32_t x_id = 0;
+  uint32_t transposed_id = 1;
+  const uint32_t y_id = 2;
+  SubgraphBuilder builder(3);
+
+  builder.AddInput(ynn_type_fp32, 3, x_id)
+      .AddOutput(ynn_type_fp32, 2, y_id)
+      .AddTensor(ynn_type_fp32, 3, transposed_id);
+
+  // Transpose (0, 2, 1). So dimension 0 -> 0, 1 -> 2, 2 -> 1.
+  std::vector<int32_t> perm = {0, 2, 1};
+  builder.AddTranspose(perm, x_id, transposed_id)
+      .AddReduce(ynn_reduce_sum, {2}, transposed_id, YNN_INVALID_VALUE_ID, y_id,
+                 /*flags=*/0);
+
+  ynn_subgraph& subgraph = *builder.GetSubgraph();
+  subgraph.fusion();
+  subgraph.invalidate_dead_values();
+
+  ASSERT_THAT(subgraph,
+              AllOf(HasValidNodeCount(1), HasValidValueIds(x_id, y_id),
+                    Not(HasValidValueId(transposed_id))));
+
+  const ynn_node& reduce_node = ProducerOf(y_id, subgraph);
+  EXPECT_THAT(reduce_node, AllOf(IsReduce(ynn_reduce_sum),
+                                 InputsAre(x_id, YNN_INVALID_VALUE_ID)));
+
+  const auto& reduce_op = std::get<ynn_node::reduce>(reduce_node.op);
+  // Original user reduce axis is 2 -> Slinky axis 0. (k_dims[0] = true).
+  // Transpose permutation is {0, 2, 1}, which translates to slinky permutation
+  // {1, 0, 2}. Mapped axis = perm[0] = 1.
+  EXPECT_EQ(reduce_op.k_dims, 0b010);
+}
+
 }  // namespace ynn
