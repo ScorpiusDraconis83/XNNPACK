@@ -23,8 +23,6 @@ def main(argv: Sequence[str]) -> None:
   kernels = {
       "x86_sse2": [
           (quantize_fp32_to_int8, (16, 1)),
-          (multiply_fp32_fp32_fp32, (8, 1)),
-          (multiply_fp64_fp64_fp64, (4, 1)),
           (multiply_int32_fp32_fp32, (8, 1)),
           (multiply_add_fp32_fp32_fp32, (8, 1)),
           (multiply_add_fp64_fp64_fp64, (4, 1)),
@@ -36,8 +34,6 @@ def main(argv: Sequence[str]) -> None:
           (quantize_fp32_to_uint8, (16, 1)),
       ],
       "x86_avx": [
-          (multiply_fp32_fp32_fp32, (16, 1)),
-          (multiply_fp64_fp64_fp64, (8, 1)),
           (multiply_add_fp32_fp32_fp32, (16, 1)),
           (multiply_add_fp64_fp64_fp64, (8, 1)),
           (clamp_fp32_fp32_fp32, (16, 1)),
@@ -50,8 +46,6 @@ def main(argv: Sequence[str]) -> None:
           (subtract_multiply_int32_int32_int32, (16, 1)),
       ],
       "x86_avx512": [
-          (multiply_fp32_fp32_fp32, (32, 1)),
-          (multiply_fp64_fp64_fp64, (16, 1)),
           (multiply_int32_fp32_fp32, (32, 1)),
           (subtract_multiply_int32_int32_int32, (32, 1)),
           (multiply_add_fp32_fp32_fp32, (32, 1)),
@@ -63,20 +57,17 @@ def main(argv: Sequence[str]) -> None:
       ],
       "arm_neon": [
           (quantize_fp32_to_int8, (16, 1)),
-          (multiply_fp32_fp32_fp32, (32, 1)),
           (multiply_int32_fp32_fp32, (64, 1)),
           (subtract_multiply_int32_int32_int32, (8, 1)),
           (multiply_add_fp32_fp32_fp32, (32, 1)),
           (clamp_fp32_fp32_fp32, (32, 1)),
       ],
       "arm64_neon": [
-          (multiply_fp64_fp64_fp64, (16, 1)),
           (multiply_add_fp64_fp64_fp64, (16, 1)),
           (clamp_fp64_fp64_fp64, (16, 1)),
       ],
       "wasm_simd128": [
           (quantize_fp32_to_int8, (16, 1)),
-          (multiply_fp32_fp32_fp32, (8, 1)),
           (multiply_int32_fp32_fp32, (8, 1)),
           (subtract_multiply_int32_int32_int32, (8, 1)),
           (multiply_add_fp32_fp32_fp32, (8, 1)),
