@@ -113,6 +113,9 @@ SET(PROD_NEON_MICROKERNEL_SRCS
   src/qs8-dwconv/gen/qs8-dwconv-25p8c-minmax-rndnu-neon-mla8-ld64.c
   src/qs8-dwconv/gen/qs8-dwconv-25p16c-minmax-rndnu-neon-mla8-ld64.c
   src/qs8-f32-vcvt/gen/qs8-f32-vcvt-neon-u32.c
+  src/qs8-packw/gen/qs8-packw-x8c8-gemm-goi-neon.c
+  src/qs8-packw/gen/qs8-packw-x16c8-gemm-goi-neon.c
+  src/qs8-qc4w-packw/gen/qs8-qc4w-packw-x16c8-gemm-goi-neon-prfm.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p16c-minmax-fp32-neon-mla8-ld128.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p16c-minmax-fp32-neon-mla8-ld64.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p8c-minmax-fp32-neon-mla8-ld64.c
@@ -172,6 +175,7 @@ SET(PROD_NEON_MICROKERNEL_SRCS
   src/u8-rminmax/gen/u8-rmin-neon-u32-acc2.c
   src/u8-rminmax/gen/u8-rminmax-neon-u32-acc2.c
   src/u8-vclamp/u8-vclamp-neon-u64.c
+  src/x8-packw/gen/x8-packw-x8-gemm-goi-neon-u16-prfm.c
   src/x8-transposec/gen/x8-transposec-16x16-reuse-dec-zip-neon.c
   src/x16-packw/gen/x16-packw-x8-gemm-goi-neon-ld4lane-u8-prfm.c
   src/x16-packw/gen/x16-packw-x16-gemm-goi-neon-ld4lane-u8-prfm.c
@@ -511,6 +515,11 @@ SET(NON_PROD_NEON_MICROKERNEL_SRCS
   src/qs8-f32-vcvt/gen/qs8-f32-vcvt-neon-u8.c
   src/qs8-f32-vcvt/gen/qs8-f32-vcvt-neon-u16.c
   src/qs8-f32-vcvt/gen/qs8-f32-vcvt-neon-u24.c
+  src/qs8-packw/gen/qs8-packw-x8c8-gemm-goi-neon-prfm.c
+  src/qs8-packw/gen/qs8-packw-x16c8-gemm-goi-neon-prfm.c
+  src/qs8-qc4w-packw/gen/qs8-qc4w-packw-x8c8-gemm-goi-neon-prfm.c
+  src/qs8-qc4w-packw/gen/qs8-qc4w-packw-x8c8-gemm-goi-neon.c
+  src/qs8-qc4w-packw/gen/qs8-qc4w-packw-x16c8-gemm-goi-neon.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p8c-minmax-fp32-neon-mla8-ld64.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p16c-minmax-fp32-neon-mla8-ld64.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-4p8c-minmax-fp32-neon-mla8-ld64.c
@@ -719,7 +728,14 @@ SET(NON_PROD_NEON_MICROKERNEL_SRCS
   src/u8-rminmax/gen/u8-rminmax-neon-u64-acc2.c
   src/u8-rminmax/gen/u8-rminmax-neon-u64-acc4.c
   src/x8-packw/gen/x8-packw-gio-neon-u2.c
+  src/x8-packw/gen/x8-packw-x8-gemm-goi-neon-u8-prfm.c
+  src/x8-packw/gen/x8-packw-x8-gemm-goi-neon-u8.c
+  src/x8-packw/gen/x8-packw-x8-gemm-goi-neon-u16.c
   src/x8-packw/gen/x8-packw-x8c4-gemm-goi-neon.c
+  src/x8-packw/gen/x8-packw-x16-gemm-goi-neon-u8-prfm.c
+  src/x8-packw/gen/x8-packw-x16-gemm-goi-neon-u8.c
+  src/x8-packw/gen/x8-packw-x16-gemm-goi-neon-u16-prfm.c
+  src/x8-packw/gen/x8-packw-x16-gemm-goi-neon-u16.c
   src/x8-packw/gen/x8-packw-x16c4-gemm-goi-neon.c
   src/x8-transposec/gen/x8-transposec-8x8-multi-dec-zip-neon.c
   src/x8-transposec/gen/x8-transposec-8x8-multi-mov-zip-neon.c
